@@ -103,20 +103,22 @@ async function solve(page: Page) {
         await page.locator(`[data-slot="${pair[1].id}"]`).click();
         await page.getByRole("button", { name: "Connect Pair" }).click();
       } else if (own.length) {
-        await page.locator(`[data-slot="${own[0].id}"]`).click();
-        const share = page.getByRole("button", {
-          name: "Share selected Sam circuit",
-        });
-        let shared = false;
-        for (const candidate of own) {
+        const transmissions = await page
+          .getByRole("log", { name: "Crew transmissions" })
+          .innerText();
+        const sharedSlots = new Set(
+          Array.from(
+            transmissions.matchAll(/Sam, slot (\d+): my number/g),
+            (m) => Number(m[1]),
+          ),
+        );
+        const candidate = own.find((c) => !sharedSlots.has(c.position + 1));
+        if (candidate) {
           await page.locator(`[data-slot="${candidate.id}"]`).click();
-          if (await share.isEnabled()) {
-            await share.click();
-            shared = true;
-            break;
-          }
-        }
-        if (!shared)
+          await page
+            .getByRole("button", { name: "Share selected Sam circuit" })
+            .click();
+        } else
           await page
             .getByRole("button", { name: "Pass turn", exact: true })
             .click();
@@ -182,7 +184,7 @@ test("real engine mistake triggers impact, public reveal, AI turn and fatal defe
   await own.click();
   await page.locator(".rack-nova .wire-tile").first().click();
   await expect(
-    page.getByRole("region", { name: "Confirm connection" }),
+    page.getByRole("dialog", { name: "Are you sure?" }),
   ).toBeVisible();
   await page.getByRole("button", { name: /^Connect / }).click();
   await expect(page.locator(".attack-scene")).toHaveClass(/under-attack/);
@@ -269,7 +271,7 @@ test("isolated turn/reveal fixtures: keyboard confirmation, cancel, duplicate pr
   ).toHaveAttribute("readonly", "");
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(
-    page.getByRole("region", { name: "Confirm connection" }),
+    page.getByRole("dialog", { name: "Are you sure?" }),
   ).not.toBeVisible();
   await page
     .getByRole("button", { name: "Nova, slot 1, hidden", exact: true })
@@ -450,8 +452,8 @@ test("drag Self-Match is confirmation-only and cancel costs nothing, mouse and t
     await page.mouse.up();
   }
   await expect(
-    page.getByRole("region", { name: "Confirm connection" }),
-  ).toContainText("ARE YOU SURE?");
+    page.getByRole("dialog", { name: "Are you sure?" }),
+  ).toContainText("Are you sure?");
   await expect(
     page.getByRole("button", { name: "Connect Pair", exact: true }),
   ).toBeVisible();
@@ -511,8 +513,8 @@ test("drag to crew with mobile edge scrolling opens confirmation and cancellatio
     await page.mouse.up();
   }
   await expect(
-    page.getByRole("region", { name: "Confirm connection" }),
-  ).toContainText("ARE YOU SURE?");
+    page.getByRole("dialog", { name: "Are you sure?" }),
+  ).toContainText("Are you sure?");
   await expect(
     page.getByRole("button", { name: "Connect circuits", exact: true }),
   ).toBeVisible();
@@ -561,10 +563,13 @@ test("yellow lab reveals only authorized types and updates separate category pro
 }, info) => {
   await launchLab(page, "yellow");
   await expect(page.locator(".wire-tile")).toHaveCount(52);
-  await expect(page.locator(".special-yellow")).toContainText("0/4 resolved");
-  await expect(page.locator(".special-yellow")).toContainText(
-    "Possible sorting positions",
-  );
+  await expect(page.locator(".tracker-badge.badge-yellow")).toHaveCount(4);
+  await expect(
+    page.locator('.number-tracker [data-label="2A"]'),
+  ).toHaveAttribute("data-certainty", "possible");
+  await expect(
+    page.locator('.number-tracker [data-label="5A"]'),
+  ).toHaveAttribute("data-certainty", "confirmed");
   await expect(
     page.locator(".rack-nova .circuit-yellow,.rack-pip .circuit-yellow"),
   ).toHaveCount(0);
@@ -580,7 +585,12 @@ test("yellow lab reveals only authorized types and updates separate category pro
   await page
     .getByRole("button", { name: "Connect circuits", exact: true })
     .click();
-  await expect(page.locator(".special-yellow")).toContainText("2/4 resolved");
+  await expect(
+    page.locator('.number-tracker [data-label="8A"]'),
+  ).toHaveAttribute("data-certainty", "confirmed");
+  await expect(page.locator(".special-register,.special-marker")).toHaveCount(
+    0,
+  );
   await expect(page.locator('[data-slot="nova-8"]')).toHaveAttribute(
     "data-circuit-type",
     "yellow",
@@ -604,7 +614,10 @@ test("red lab warns only about public identities and red trigger has distinct fa
 }, info) => {
   await launchLab(page, "red");
   await expect(page.locator(".wire-tile")).toHaveCount(54);
-  await expect(page.locator(".special-red")).toContainText("0/2 resolved");
+  await expect(page.locator(".tracker-badge.badge-red")).toHaveCount(2);
+  await expect(page.locator(".special-register,.special-marker")).toHaveCount(
+    0,
+  );
   await expect(page.locator('[data-slot="sam-5"]')).toHaveAttribute(
     "data-circuit-type",
     "red",
@@ -652,5 +665,156 @@ test("red lab warns only about public identities and red trigger has distinct fa
     "data-circuit-type",
     "hidden",
   );
-  await expect(page.locator(".special-red")).toContainText("0/2 resolved");
+  await expect(page.locator(".tracker-badge.badge-red")).toHaveCount(2);
+  await expect(page.locator(".special-register,.special-marker")).toHaveCount(
+    0,
+  );
+});
+
+test("tracker badges stay inside existing tiles, preserve progress and distinguish uncertain positions", async ({
+  page,
+}, info) => {
+  await launchLab(page, "red");
+  await expect(page.locator(".number-marker")).toHaveCount(12);
+  await expect(page.locator(".special-register,.special-marker")).toHaveCount(
+    0,
+  );
+  await expect(page.locator(".number-tracker")).not.toContainText(
+    "Possible sorting positions",
+  );
+  await expect(page.locator(".number-tracker")).not.toContainText(
+    "YELLOW · SPECIAL",
+  );
+  const yellow = page
+    .locator(".number-marker")
+    .filter({ has: page.locator('[data-label="2A"]') });
+  await expect(
+    yellow.getByRole("img", { name: /Confirmed bridge circuit 2A/ }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("img", { name: /Possible bridge circuit 8A/ }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("img", { name: /Confirmed overload circuit 4/ }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("img", { name: /Possible overload circuit 9/ }),
+  ).toBeVisible();
+  await expect(page.locator(".number-tracker")).not.toContainText("2.5");
+  await expect(page.locator(".tracker-badge svg")).toHaveCount(6);
+  for (const width of [390, 740, 820, 1280]) {
+    await page.setViewportSize({ width, height: 1000 });
+    const overlaps = await page
+      .locator(".number-marker")
+      .evaluateAll((tiles) => {
+        const bad: string[] = [];
+        for (const tile of tiles) {
+          const box = tile.getBoundingClientRect();
+          const badges = tile.querySelectorAll(".tracker-badge");
+          const textRects = [
+            tile.querySelector("strong"),
+            tile.querySelector("small"),
+          ]
+            .filter(Boolean)
+            .map((el) => {
+              const range = document.createRange();
+              range.selectNodeContents(el!);
+              return range.getBoundingClientRect();
+            });
+          const rects = [
+            ...textRects,
+            ...Array.from(tile.querySelectorAll(".copy-pips i")).map((el) =>
+              el.getBoundingClientRect(),
+            ),
+          ];
+          for (const badge of badges) {
+            const r = badge.getBoundingClientRect();
+            if (
+              r.left < box.left ||
+              r.right > box.right ||
+              r.top < box.top ||
+              r.bottom > box.bottom
+            )
+              bad.push("outside tile");
+            for (const t of rects)
+              if (
+                r.left < t.right - 0.1 &&
+                r.right > t.left + 0.1 &&
+                r.top < t.bottom - 0.1 &&
+                r.bottom > t.top + 0.1
+              )
+                bad.push("overlapping progress");
+          }
+        }
+        return bad;
+      });
+    expect(overlaps).toEqual([]);
+  }
+  await page.screenshot({
+    path: `docs/previews/${info.project.name}-tracker-badges.png`,
+    fullPage: true,
+  });
+});
+test("connection modal overlays without pushing the board, traps focus, cancels with Escape and submits once", async ({
+  page,
+}, info) => {
+  await launch(page, "/tests/fixtures/real.html");
+  const source = page.locator('[data-slot="sam-0"]'),
+    target = page.locator('[data-slot="nova-0"]');
+  await source.click();
+  const before = (await page.locator(".board-main").boundingBox())!;
+  await target.click();
+  const dialog = page.getByRole("dialog", { name: "Are you sure?" });
+  await expect(dialog).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Cancel", exact: true }),
+  ).toBeFocused();
+  await expect(dialog).toContainText("Nova");
+  await expect(dialog).toContainText("slot 1");
+  await expect(dialog.locator(".preview-hidden strong")).toHaveText("?");
+  await expect(
+    dialog.getByRole("textbox", { name: "Declared number" }),
+  ).toHaveValue("1");
+  expect(await dialog.evaluate((el) => el.matches(":modal"))).toBe(true);
+  expect(await dialog.evaluate((el) => getComputedStyle(el).position)).toBe(
+    "fixed",
+  );
+  const backdrop = await dialog.evaluate(
+    (el) => getComputedStyle(el, "::backdrop").backgroundColor,
+  );
+  expect(backdrop).not.toBe("rgba(0, 0, 0, 0)");
+  const after = (await page.locator(".board-main").boundingBox())!;
+  expect(after.height).toBeLessThanOrEqual(before.height + 1);
+  expect(Math.abs(after.width - before.width)).toBeLessThanOrEqual(1);
+  const box = (await dialog.boundingBox())!,
+    viewport = page.viewportSize()!;
+  expect(
+    Math.abs(box.x + box.width / 2 - viewport.width / 2),
+  ).toBeLessThanOrEqual(2);
+  expect(box.width).toBeLessThan(viewport.width);
+  expect(box.height).toBeLessThan(viewport.height);
+  await page.keyboard.press("Tab");
+  await expect(
+    dialog.getByRole("button", { name: "Connect circuits", exact: true }),
+  ).toBeFocused();
+  await page.keyboard.press("Tab");
+  expect(
+    await dialog.evaluate((el) => el.contains(document.activeElement)),
+  ).toBe(true);
+  await page.screenshot({
+    path: `docs/previews/${info.project.name}-connection-modal.png`,
+    fullPage: true,
+  });
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(target).toBeFocused();
+  await expect(page.getByText("100%", { exact: true })).toBeVisible();
+  await expect(page.locator(".turn-pill")).toContainText("Sam's");
+  await target.click();
+  await dialog
+    .getByRole("button", { name: "Connect circuits", exact: true })
+    .dblclick();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByText("85%", { exact: true })).toBeVisible();
+  await expect(page.locator(".attack-vfx")).toHaveCount(1);
 });

@@ -13,6 +13,7 @@ import type {
   ToolId,
 } from "../types/presentation";
 import { NumberTracker } from "./NumberTracker";
+import { ConnectionDialog } from "./ConnectionDialog";
 import { ConnectionOverlay } from "./ConnectionOverlay";
 import { Toolkit } from "./Toolkit";
 import { Sam, Ship } from "./Ship";
@@ -303,11 +304,6 @@ export function CircuitBoard({
   const targetSlot = targetRoom?.slots.find(
     (s) => s.id === target && !s.restored,
   );
-  const confirmation = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (declaring && ownSlot && (targetSlot || secondOwnSlot))
-      confirmation.current?.focus();
-  }, [declaring, own, target]);
   useEffect(() => {
     if (!ownSlot || (!targetSlot && !secondOwnSlot) || !canAct)
       setDeclaring(false);
@@ -559,7 +555,7 @@ export function CircuitBoard({
                       phase: "result",
                       outcome: effect.kind,
                       eventId: effect.id,
-                      circuitIds:effect.slotIds,
+                      circuitIds: effect.slotIds,
                     }
                   : declaring
                     ? {
@@ -708,62 +704,34 @@ export function CircuitBoard({
             )}
           </div>
           {declaring && ownSlot && (targetSlot || secondOwnSlot) && (
-            <div
-              className="declaration-panel"
-              ref={confirmation}
-              tabIndex={-1}
-              role="region"
-              aria-label="Confirm connection"
-              onKeyDown={(e) => {
-                if (e.key === "Escape") setDeclaring(false);
+            <ConnectionDialog
+              source={ownSlot}
+              target={secondOwnSlot ?? targetSlot!}
+              targetName={secondOwnSlot ? "Sam" : targetRoom!.name}
+              targetPosition={
+                secondOwnSlot
+                  ? state.ownCircuits.findIndex(
+                      (s) => s.id === secondOwnSlot.id,
+                    ) + 1
+                  : targetRoom!.slots.findIndex((s) => s.id === target) + 1
+              }
+              selfMatch={!!secondOwnSlot}
+              explanation={
+                secondOwnSlot
+                  ? state.selfMatches?.find((m) => m.number === ownSlot.value)
+                      ?.explanation
+                  : undefined
+              }
+              busy={busy || !canAct}
+              onConfirm={connect}
+              onCancel={() => {
+                suppressClick.current = false;
+                setDeclaring(false);
+                setTarget("");
+                setSecondOwn("");
               }}
-            >
-              <div>
-                <span className="eyebrow">ARE YOU SURE?</span>
-                <p>
-                  Connect Sam’s <strong>{ownSlot.value}</strong> to{" "}
-                  {secondOwnSlot
-                    ? "Sam’s second matching circuit"
-                    : `${targetRoom!.name}, slot ${targetRoom!.slots.findIndex((s) => s.id === target) + 1}`}
-                  ?
-                  {secondOwnSlot && (
-                    <small className="self-explainer">
-                      {state.selfMatches?.find(
-                        (m) => m.number === ownSlot.value,
-                      )?.explanation ??
-                        "The engine checks whether Sam holds every remaining copy."}
-                    </small>
-                  )}
-                </p>
-              </div>
-              <label>
-                Declared number
-                <input
-                  aria-label="Declared number"
-                  inputMode="numeric"
-                  value={ownSlot.value}
-                  readOnly
-                />
-              </label>
-              <button
-                className="text-button cancel-declaration"
-                onClick={() => {
-                  setDeclaring(false);
-                  setTarget("");
-                  setSecondOwn("");
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                className="primary"
-                disabled={busy || !canAct}
-                onClick={connect}
-                aria-label={secondOwnSlot ? "Connect Pair" : "Connect circuits"}
-              >
-                {secondOwnSlot ? "Connect Pair" : "Connect"} <span>ϟ</span>
-              </button>
-            </div>
+              fallbackFocus={headingRef}
+            />
           )}
           {selectedTool && (
             <div

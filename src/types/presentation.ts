@@ -38,6 +38,7 @@ export type MissionView = {
     specials: {
       type: "yellow" | "red";
       positionLabel: string;
+      positions?: { sortValue: number; certainty: "possible" | "confirmed" }[];
       resolved: number;
       total: number;
       complete: boolean;

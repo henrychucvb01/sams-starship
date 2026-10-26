@@ -2969,3 +2969,220 @@ dialog::backdrop {
 .wire-tile {
   touch-action: auto;
 }
+/* Compact, public special marks inside the existing tracker tiles. */
+.number-marker {
+  position: relative;
+  container-type: inline-size;
+}
+.tracker-badge {
+  position: absolute;
+  bottom: 3px;
+  width: clamp(5px, calc((100cqw - 18px) / 2 - 2px), 16px);
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border-radius: 3px;
+  line-height: 1;
+  border: 1px solid transparent;
+}
+.tracker-badge svg {
+  width: 85%;
+  height: 85%;
+}
+.badge-end {
+  right: 3px;
+}
+.badge-start {
+  left: 3px;
+}
+.badge-yellow {
+  background: #d7a52b;
+  color: #322b16;
+}
+.badge-red {
+  background: #a93e51;
+  color: #fff2eb;
+}
+.tracker-badge.badge-possible {
+  border-style: dashed;
+  border-color: currentColor;
+  background-color: transparent;
+  opacity: 0.8;
+}
+.badge-yellow.badge-possible {
+  color: #eac253;
+}
+.badge-red.badge-possible {
+  color: #ef8a9a;
+}
+.tracker-badge:focus-visible {
+  outline: 2px solid var(--mint);
+  outline-offset: 2px;
+}
+/* Connection confirmation lives in the browser top layer, outside board layout. */
+.connection-dialog {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  width: min(440px, calc(100% - 32px));
+  max-width: none;
+  max-height: calc(100dvh - 32px);
+  padding: 0;
+  border: 1px solid #d5d4b27a;
+  border-radius: 23px;
+  background: linear-gradient(145deg, #323b54, #232d45);
+  box-shadow: 0 30px 100px #050a2888;
+  color: #f7f0de;
+  overflow: auto;
+}
+.connection-dialog::backdrop {
+  background: #080e27b8;
+  backdrop-filter: blur(3px);
+}
+.connection-dialog-content {
+  padding: 28px;
+}
+.connection-dialog h2 {
+  font-size: 1.8rem;
+  margin: 15px 0 12px;
+  color: var(--cream);
+}
+.connection-dialog p {
+  font-size: 0.85rem;
+  line-height: 1.65;
+  color: #cbd4e2;
+}
+.connection-dialog p strong {
+  color: #fff0bd;
+}
+.connection-preview {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 42px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  margin: 25px 0;
+}
+.preview-endpoint {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  min-width: 0;
+  gap: 10px;
+}
+.preview-endpoint > span {
+  font-size: 0.7rem;
+  color: #d2dcea;
+  text-align: center;
+  line-height: 1.5;
+  min-height: 21px;
+}
+.preview-circuit {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
+  width: 80px;
+  height: 105px;
+  border-radius: 13px;
+  border: 1px solid #c2d9e8;
+  background: #b9d3e5;
+  color: #26354a;
+  box-shadow: 0 5px 0 #121d32;
+}
+.preview-circuit input {
+  font-family: "Space Grotesk", system-ui, sans-serif;
+  font-size: 2rem;
+  font-weight: 700;
+  text-align: center;
+  width: 100%;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  pointer-events: none;
+}
+.preview-circuit > strong {
+  font:
+    700 2rem "Space Grotesk",
+    system-ui,
+    sans-serif;
+}
+.preview-circuit small {
+  font-size: 0.45rem;
+  letter-spacing: 0.06em;
+}
+.preview-hidden {
+  border-style: dashed;
+  background: #1d283e;
+  color: #b7c9e2;
+}
+.preview-yellow {
+  background: #e6ce87;
+  color: #292d3c;
+  border-color: #ffe5a0;
+}
+.preview-red {
+  background: #bd656c;
+  color: #fff0de;
+  border-color: #ffc2bf;
+}
+.preview-arrow {
+  width: 100%;
+  color: var(--mint);
+  margin-top: 30px;
+}
+.connection-dialog .dialog-match-note {
+  font-size: 0.72rem;
+  color: #c6e3d7;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+  margin-bottom: 8px;
+}
+.connection-dialog-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 25px;
+  padding-bottom: 5px;
+}
+.connection-dialog-actions button {
+  justify-content: center;
+  min-height: 48px;
+}
+.connection-dialog-actions .secondary {
+  background: #ffffff08;
+}
+.connection-dialog-actions .primary {
+  box-shadow: 0 4px 0 #b9a87f;
+}
+@media (max-width: 420px) {
+  .connection-dialog-content {
+    padding: 23px;
+  }
+  .connection-dialog h2 {
+    font-size: 1.6rem;
+  }
+  .connection-preview {
+    gap: 9px;
+    grid-template-columns: minmax(0, 1fr) 30px minmax(0, 1fr);
+  }
+  .preview-circuit {
+    width: 72px;
+    height: 99px;
+  }
+  .connection-dialog-actions {
+    gap: 10px;
+  }
+  .connection-dialog-actions button {
+    font-size: 0.9rem;
+  }
+}
+
+@container (max-width:36px) {
+  .tracker-badge {
+    bottom: 1px;
+    width: 5px;
+  }
+}

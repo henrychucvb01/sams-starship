@@ -115,6 +115,33 @@ export function createEngineAdapter(
           .filter((p) => p.totalCopies > 0)
           .map((p) => ({
             type: p.kind,
+            positions: Array.from(
+              new Map<
+                number,
+                { sortValue: number; certainty: "possible" | "confirmed" }
+              >([
+                ...p.candidates.map(
+                  (c) =>
+                    [
+                      c.sortValue,
+                      {
+                        sortValue: c.sortValue,
+                        certainty: "possible" as const,
+                      },
+                    ] as const,
+                ),
+                ...p.confirmed.map(
+                  (c) =>
+                    [
+                      c.sortValue,
+                      {
+                        sortValue: c.sortValue,
+                        certainty: "confirmed" as const,
+                      },
+                    ] as const,
+                ),
+              ]).values(),
+            ),
             resolved: p.resolvedCopies,
             total: p.totalCopies,
             complete: p.completed,
