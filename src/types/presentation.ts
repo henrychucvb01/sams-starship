@@ -19,12 +19,30 @@ export type Expression =
 export type Slot = {
   id: string;
   restored: boolean;
+  type?: "blue" | "yellow" | "red";
+  sortLabel?: string;
   clue?: { min: number; max: number };
   excluded?: number[];
   possibilities?: number[];
   scans?: { threshold: number; relation: string }[];
 };
 export type MissionView = {
+  missionName?: string;
+  tracker?: {
+    numbers: {
+      number: number;
+      resolved: number;
+      total: number;
+      complete: boolean;
+    }[];
+    specials: {
+      type: "yellow" | "red";
+      positionLabel: string;
+      resolved: number;
+      total: number;
+      complete: boolean;
+    }[];
+  };
   tools?: ToolView[];
   toolToken?: string;
   selfMatches?: {
@@ -47,7 +65,14 @@ export type MissionView = {
   effects?: {
     id: number;
     kind:
-      "success" | "damage" | "scan" | "dual" | "shield" | "blocked" | "hint";
+      | "success"
+      | "damage"
+      | "scan"
+      | "dual"
+      | "shield"
+      | "blocked"
+      | "hint"
+      | "critical";
     slotIds: string[];
     participant?: "sam" | "nova" | "pip";
   }[];
@@ -80,6 +105,8 @@ export interface MissionAdapter {
   shareCircuit: (ownId: string) => void;
   activate: () => void;
   deactivate: () => void;
+  chooseMission?: (id: string) => void;
+  isolateRed?: (id: string) => void;
   restart: () => void;
   dispose: () => void;
 }

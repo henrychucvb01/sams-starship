@@ -35,27 +35,23 @@ async function solve(page: Page) {
     if (await page.getByRole("heading", { name: /Mission Complete/ }).count())
       return;
     // Test driver reasons ONLY from rendered public board. No private board or seed lookup.
-    const circuits = (await page
-      .locator(".rack")
-      .evaluateAll((rows) =>
-        rows.flatMap((row) =>
-          Array.from(row.querySelectorAll(".wire-tile")).map(
-            (el, position) => ({
-              id: el.getAttribute("data-slot")!,
-              owner: row.classList.contains("rack-sam")
-                ? "sam"
-                : row.classList.contains("rack-nova")
-                  ? "nova"
-                  : "pip",
-              position,
-              restored: el.classList.contains("cleared"),
-              ...((el.querySelector("strong")!.textContent ?? "?") !== "?"
-                ? { value: Number(el.querySelector("strong")!.textContent) }
-                : {}),
-            }),
-          ),
-        ),
-      )) as Circuit[];
+    const circuits = (await page.locator(".rack").evaluateAll((rows) =>
+      rows.flatMap((row) =>
+        Array.from(row.querySelectorAll(".wire-tile")).map((el, position) => ({
+          id: el.getAttribute("data-slot")!,
+          owner: row.classList.contains("rack-sam")
+            ? "sam"
+            : row.classList.contains("rack-nova")
+              ? "nova"
+              : "pip",
+          position,
+          restored: el.classList.contains("cleared"),
+          ...((el.querySelector("strong")!.textContent ?? "?") !== "?"
+            ? { value: Number(el.querySelector("strong")!.textContent) }
+            : {}),
+        })),
+      ),
+    )) as Circuit[];
     const reveals = circuits
       .filter((c) => c.value !== undefined)
       .map((c) => ({
@@ -225,8 +221,7 @@ test("production navigation, persisted preferences, off-turn controls, timeout a
     page.getByRole("button", { name: "Pass turn", exact: true }),
   ).toBeDisabled();
   await expect(page.getByRole("button", { name: /Sam’s Hint/ })).toBeDisabled();
-  await page.clock.runFor(300000);
-  // Flush the terminal React render before advancing its result-screen delay.
+  await page.clock.fastForward(300000);
   await expect(page.getByText("0:00", { exact: true })).toBeVisible();
   await page.clock.runFor(1200);
   await expect(
@@ -419,3 +414,243 @@ test("later-mission scanner and dual scanner target controls use real tool outco
   await expect(page.locator(".connection-arc")).toBeVisible();
 });
 
+test("drag Self-Match is confirmation-only and cancel costs nothing, mouse and touch", async ({
+  page,
+}, info) => {
+  await launch(page, "/tests/fixtures/real.html?self=1");
+  const source = page.locator('[data-slot="sam-2"]'),
+    target = page.locator('[data-slot="sam-3"]');
+  await source.scrollIntoViewIfNeeded();
+  const a = (await source.boundingBox())!,
+    b = (await target.boundingBox())!;
+  const start = { x: a.x + a.width / 2, y: a.y + 8 },
+    end = { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+  if (info.project.name === "mobile") {
+    const session = await page.context().newCDPSession(page);
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [start],
+    });
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: [end],
+    });
+    await page.clock.runFor(30);
+    await expect(page.locator(".drag-wire path")).toHaveAttribute("d", /^M/);
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchEnd",
+      touchPoints: [],
+    });
+  } else {
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await page.mouse.move(end.x, end.y, { steps: 8 });
+    await page.clock.runFor(30);
+    await expect(page.locator(".drag-wire path")).toHaveAttribute("d", /^M/);
+    await page.mouse.up();
+  }
+  await expect(
+    page.getByRole("region", { name: "Confirm connection" }),
+  ).toContainText("ARE YOU SURE?");
+  await expect(
+    page.getByRole("button", { name: "Connect Pair", exact: true }),
+  ).toBeVisible();
+  await expect(page.locator(".rack-sam .wire-tile.cleared")).toHaveCount(0);
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(page.getByText("100%", { exact: true })).toBeVisible();
+  await expect(page.locator(".turn-pill")).toContainText("Sam's");
+  await expect(page.locator(".rack-sam .wire-tile.cleared")).toHaveCount(0);
+  await source.click();
+  await target.click();
+  await page.getByRole("button", { name: "Connect Pair", exact: true }).click();
+  await expect(page.locator(".rack-sam .wire-tile.cleared")).toHaveCount(4);
+});
+
+test("drag to crew with mobile edge scrolling opens confirmation and cancellation is free", async ({
+  page,
+}, info) => {
+  await launch(page, "/tests/fixtures/real.html");
+  if (info.project.name === "desktop")
+    await page.setViewportSize({ width: 1440, height: 1500 });
+  const source = page.locator('[data-slot="sam-15"]'),
+    target = page.locator('[data-slot="nova-0"]');
+  await source.scrollIntoViewIfNeeded();
+  const a = (await source.boundingBox())!;
+  if (info.project.name === "mobile") {
+    const session = await page.context().newCDPSession(page);
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [{ x: a.x + a.width / 2, y: a.y + 8 }],
+    });
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: [{ x: a.x + a.width / 2, y: 10 }],
+    });
+    for (let i = 0; i < 20; i++) {
+      const r = (await target.boundingBox())!;
+      if (r.y >= 65 && r.y + r.height < 800) break;
+      await page.clock.runFor(100);
+    }
+    const b = (await target.boundingBox())!;
+    expect(b.y).toBeGreaterThanOrEqual(0);
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: [{ x: b.x + b.width / 2, y: b.y + b.height / 2 }],
+    });
+    await page.clock.runFor(20);
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchEnd",
+      touchPoints: [],
+    });
+  } else {
+    const b = (await target.boundingBox())!;
+    await page.mouse.move(a.x + a.width / 2, a.y + 8);
+    await page.mouse.down();
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 10 });
+    await page.clock.runFor(20);
+    await page.mouse.up();
+  }
+  await expect(
+    page.getByRole("region", { name: "Confirm connection" }),
+  ).toContainText("ARE YOU SURE?");
+  await expect(
+    page.getByRole("button", { name: "Connect circuits", exact: true }),
+  ).toBeVisible();
+  await expect(page.locator(".drag-wire")).toHaveCount(0);
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(page.getByText("100%", { exact: true })).toBeVisible();
+  await expect(page.locator(".turn-pill")).toContainText("Sam's");
+  await expect(page.locator(".wire-tile.cleared")).toHaveCount(0);
+});
+
+async function launchLab(page: Page, kind: "yellow" | "red") {
+  await page.clock.install();
+  await page.goto("/tests/fixtures/real.html");
+  await page.getByRole("button", { name: "Play Solo" }).click();
+  await page
+    .getByRole("button", {
+      name: kind === "yellow" ? /Circuit Training 4/ : /Circuit Training 7/,
+    })
+    .click();
+  await page.getByRole("button", { name: "Begin Mission" }).click();
+}
+test("number tracker shows four-copy completion from actual Self-Match", async ({
+  page,
+}, info) => {
+  await launch(page, "/tests/fixtures/real.html?self=1");
+  await expect(page.getByLabel("Circuit number tracker")).toBeVisible();
+  await expect(page.locator(".number-marker")).toHaveCount(12);
+  await expect(
+    page.getByLabel("Number 2: 0 of 4 resolved", { exact: true }),
+  ).toBeVisible();
+  await page.locator('[data-slot="sam-2"]').click();
+  await page.locator('[data-slot="sam-3"]').click();
+  await page.getByRole("button", { name: "Connect Pair", exact: true }).click();
+  await expect(
+    page.getByLabel("Number 2: 4 of 4 resolved, completed", { exact: true }),
+  ).toHaveClass(/number-complete/);
+  await expect(page.locator(".number-marker")).toHaveCount(12);
+  await expect(page.locator(".special-marker")).toHaveCount(0);
+  await page.screenshot({
+    path: `docs/previews/${info.project.name}-tracker.png`,
+    fullPage: true,
+  });
+});
+test("yellow lab reveals only authorized types and updates separate category progress", async ({
+  page,
+}, info) => {
+  await launchLab(page, "yellow");
+  await expect(page.locator(".wire-tile")).toHaveCount(52);
+  await expect(page.locator(".special-yellow")).toContainText("0/4 resolved");
+  await expect(page.locator(".special-yellow")).toContainText(
+    "Possible sorting positions",
+  );
+  await expect(
+    page.locator(".rack-nova .circuit-yellow,.rack-pip .circuit-yellow"),
+  ).toHaveCount(0);
+  await expect(page.locator('[data-slot="sam-6"]')).toHaveAttribute(
+    "data-circuit-type",
+    "yellow",
+  );
+  await expect(page.locator('[data-slot="sam-6"] .sort-position')).toHaveText(
+    "sort 5.5",
+  );
+  await page.locator('[data-slot="sam-6"]').click();
+  await page.locator('[data-slot="nova-8"]').click();
+  await page
+    .getByRole("button", { name: "Connect circuits", exact: true })
+    .click();
+  await expect(page.locator(".special-yellow")).toContainText("2/4 resolved");
+  await expect(page.locator('[data-slot="nova-8"]')).toHaveAttribute(
+    "data-circuit-type",
+    "yellow",
+  );
+  await expect(page.locator('[data-slot="nova-8"] .sort-position')).toHaveText(
+    "sort 8.5",
+  );
+  await expect(page.locator(".number-complete")).toHaveCount(0);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await page.screenshot({
+    path: `docs/previews/${info.project.name}-yellow.png`,
+    fullPage: true,
+  });
+});
+test("red lab warns only about public identities and red trigger has distinct failure even with shield", async ({
+  page,
+}, info) => {
+  await launchLab(page, "red");
+  await expect(page.locator(".wire-tile")).toHaveCount(54);
+  await expect(page.locator(".special-red")).toContainText("0/2 resolved");
+  await expect(page.locator('[data-slot="sam-5"]')).toHaveAttribute(
+    "data-circuit-type",
+    "red",
+  );
+  await expect(page.locator('[data-slot="nova-13"]')).toHaveAttribute(
+    "data-circuit-type",
+    "hidden",
+  );
+  await page.locator('[data-slot="sam-5"]').click();
+  await page.getByRole("button", { name: "Isolate selected red" }).click();
+  await expect(page.locator(".board-instruction")).toContainText(
+    "Safe resolution",
+  );
+  await expect(page.locator(".turn-pill")).toContainText("Sam's");
+  await page.getByRole("button", { name: /Emergency Shield/ }).click();
+  await page.getByRole("button", { name: "Confirm tool" }).click();
+  await page.clock.runFor(800);
+  await page.locator('[data-slot="sam-0"]').click();
+  await page.locator('[data-slot="nova-13"]').click();
+  await page
+    .getByRole("button", { name: "Connect circuits", exact: true })
+    .click();
+  await expect(page.locator(".critical-flash")).toBeVisible();
+  await expect(page.locator('[data-slot="nova-13"]')).toHaveAttribute(
+    "data-circuit-type",
+    "red",
+  );
+  await expect(page.getByText("100%", { exact: true })).toBeVisible();
+  await page.screenshot({
+    path: `docs/previews/${info.project.name}-red.png`,
+    fullPage: true,
+  });
+  await page.clock.runFor(1300);
+  await expect(
+    page.getByRole("heading", { name: /Mission Failed/ }),
+  ).toBeVisible();
+  await expect(
+    page.getByText(
+      "Red circuit triggered; shield cannot prevent mission failure",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Try Again" }).click();
+  await expect(page.locator('[data-slot="nova-13"]')).toHaveAttribute(
+    "data-circuit-type",
+    "hidden",
+  );
+  await expect(page.locator(".special-red")).toContainText("0/2 resolved");
+});

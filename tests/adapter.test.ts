@@ -90,3 +90,62 @@ test("Shield absorbs one real incorrect connection and produces blocked, not dam
     a.dispose();
   }
 });
+test("tracker maps authoritative copy counts and special identities stay redacted", () => {
+  const a = createEngineAdapter(2);
+  a.activate();
+  try {
+    let s = a.getSnapshot();
+    assert.equal(s.tracker?.numbers.length, 12);
+    assert(
+      s.tracker?.numbers.every(
+        (n) => n.resolved === 0 && n.total === 4 && !n.complete,
+      ),
+    );
+    const group = s.selfMatches!.find(
+      (m) => m.eligible && m.circuitIds.length === 4,
+    )!;
+    a.selfMatch!(group.circuitIds.slice(0, 2));
+    s = a.getSnapshot();
+    assert.deepEqual(
+      s.tracker!.numbers.find((n) => n.number === group.number),
+      { number: group.number, resolved: 4, total: 4, complete: true },
+    );
+    assert.equal(s.effects?.filter((e) => e.kind === "success").length, 1);
+  } finally {
+    a.dispose();
+  }
+  const b = createEngineAdapter(42, {}, {}, "circuit-7");
+  b.activate();
+  try {
+    const s = b.getSnapshot();
+    assert.equal(s.tracker?.specials.length, 2);
+    assert(
+      s.rooms.every((r) =>
+        r.slots.every((c) => c.type === undefined && c.sortLabel === undefined),
+      ),
+    );
+    assert(
+      s.tracker!.specials.every((p) =>
+        p.positionLabel.includes("Possible sorting positions"),
+      ),
+    );
+    assert(s.ownCircuits.some((c) => c.type === "red"));
+    b.connect(s.ownCircuits[0].id, "nova-13");
+    assert.equal(b.getSnapshot().status, "defeat");
+    assert.equal(b.getSnapshot().hull, 100);
+    assert.equal(
+      b.getSnapshot().effects?.filter((e) => e.kind === "critical").length,
+      1,
+    );
+    assert.equal(
+      b.getSnapshot().rooms[0].slots.find((c) => c.id === "nova-13")?.type,
+      "red",
+    );
+    assert.equal(
+      b.getSnapshot().tracker?.specials.find((p) => p.type === "red")?.resolved,
+      0,
+    );
+  } finally {
+    b.dispose();
+  }
+});

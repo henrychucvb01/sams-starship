@@ -1,6 +1,6 @@
 # Circuit-board-first UI and revised engine integration
 
-Branch `agent/game-ui`, PR #2 → `feature/first-playable-prototype`. Main merge and production deployment are authorized for completed, tested work. This update incorporates Agent 1's revised engine commit `6c82ee5`; all engine modules are unchanged from that commit.
+Branch `agent/game-ui` → `main`. Main merge and production deployment are authorized for completed, tested work. This update incorporates Agent 1's tracker/special engine commit `0f43bcd`; all engine modules are unchanged from that commit.
 
 ## Player experience
 
@@ -59,3 +59,23 @@ SCANNER_ACTIVATED drives a beam. DUAL_SCANNER_SUCCESS/FAILED drives a two-target
 Browser coverage uses the real engine for four-copy Self-Match, invalid eligibility, finite hints, Easy scanner locks, shield interception, and later scanner/dual interactions. Engine tests cover two remaining copies, AI Self-Match, shield exhaustion and token idempotency. The browser full-mission test driver reasons from rendered public board information; no unlimited deduction assistance is shipped in the UI.
 
 To verify an external deployment on desktop and mobile: `STARSHIP_TEST_BASE_URL=https://starship.slbutter.com npm run test:ui`. This selects tests/deployed.spec.ts and skips the local development server. Production uses neither fixed-seed realHarness nor scripted boardHarness: both are excluded from the built SPA.
+
+## Number register and special circuit presentation
+
+This update consumes Agent 1's authoritative tracker/special API from `0f43bcd`. Engine modules remain unchanged. `numberTracker` maps directly to the read-only `NumberTracker` component: number, total/resolved copies, and completed flag. React does not count matching tiles, hold a separate completion state, or modify progress. Completed values remain visible with four pips and a checkmark. `NUMBER_COMPLETED` and alias resolution events never add a second increment in the UI.
+
+`specialTracker` provides yellow/red totals, resolved counts and completion, mission-permitted possible sorting keys, and confirmed own/public IDs/keys. The adapter formats those as explicitly possible versus known positions. Zero-copy special categories are hidden. Per-tile `Circuit.kind` alone determines blue/yellow/red styling; hidden slots retain a neutral identity even if their position or candidates suggest a category. Fractional yellow/red sort keys appear only when supplied on an own/public tile. Yellow category matching is never inferred by equating sort keys. All moves still use the engine validation API.
+
+Restore the Lights remains blue-only. Mission selection adds clearly labeled playtest entries for engine-defined Circuit Training 4 (yellow) and 7 (yellow/red); these do not imply automatic stage progression. Other missions/difficulties keep their prior availability. The special briefing explains category matching and red failure. `resolveRedSafely` is exposed for a selected own red tile; the engine alone checks whether other circuits have been cleared.
+
+Legacy CONNECTION_SUCCESS/SHIP_ATTACK continue to drive ordinary feedback; duplicate aliases CIRCUIT_PAIR_RESOLVED, SELF_MATCH_COMPLETED and SHIP_DAMAGED are not animated twice. RED_TRIGGERED drives one distinct critical flash/cross-wire overlay, independent of hull. A red failure can occur at 100% hull and bypass a shield; status and final engine failure message control the results screen. RED_SAFELY_RESOLVED drives one success pulse.
+
+## Pointer connections and future animation assets
+
+Pointer Events support desktop dragging from a Sam tile and touch dragging from its labeled grip. Ordinary tile taps and keyboard selections remain available. Individual rack bodies scroll horizontally; the grip reserves touch gestures for connecting. While dragging, viewport edge scrolling and rack edge scrolling keep distant crew targets reachable. The glowing SVG follows actual tile coordinates and the current pointer. Pointer cancellation, invalid drops, turn changes and unmount clean up the drag/animation frame.
+
+A drop only selects a source/target and opens **Are You Sure?**. It never calls an engine action. Confirm invokes the existing connection or Self-Match command; Cancel/Escape do not spend a turn, tool or hull. An own-to-own drop selects matching own tiles for engine-validated Self-Match. Pointer capture and a suppressed post-drag click prevent an extra tap from changing/submitting the drop. Multi-pointer initiation is rejected. No private values are read to identify targets.
+
+`ConnectionOverlay.tsx` is a presentation-only extension point for confirming, confirmed, wire-grab, plugging and result phases. Current output is a lightweight terminal-result badge, SVG electricity and existing ship effects. A future robot-mouse renderer can use the scene/event ID/outcome and selected endpoints for grab/plug/celebration/shock sequences; it must never decide outcomes, increment counters or reissue engine commands. No robot, mouse, or alien character artwork was finalized. Reduced motion leaves static feedback and the directly controlled drag line usable.
+
+New verification includes real-engine tracker completion, yellow matching across different sorting keys, hidden special secrecy, safe-red rejection, critical red failure under a shield, and mouse/touch drag/cancel with mobile edge scrolling. The standard mission is still completed to victory using rendered public information in browser QA.

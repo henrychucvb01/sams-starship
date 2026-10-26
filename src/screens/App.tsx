@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { CircuitBoard } from "../components/CircuitBoard";
 import { Ship, Sam } from "../components/Ship";
-import { createEngineAdapter } from "../adapters/engineAdapter";
+import {
+  createEngineAdapter,
+  TRAINING_MISSIONS,
+} from "../adapters/engineAdapter";
 import type { MissionAdapter } from "../types/presentation";
 const missions = [
   [
@@ -244,7 +247,10 @@ export function App({
                   <button
                     className={i ? "secondary" : "primary"}
                     disabled={i !== 0 || difficulty !== "Easy"}
-                    onClick={() => setScreen("intro")}
+                    onClick={() => {
+                      adapter.chooseMission?.("lights");
+                      setScreen("intro");
+                    }}
                   >
                     {i === 0 && difficulty === "Easy"
                       ? "Start mission"
@@ -254,11 +260,42 @@ export function App({
                 </article>
               ))}
             </div>
+            {!!adapter.chooseMission && (
+              <section
+                className="training-labs"
+                aria-label="Special circuit training"
+              >
+                <div>
+                  <span className="eyebrow">CIRCUIT TRAINING · PLAYTEST</span>
+                  <p>
+                    Practice with special circuits. Yellow tiles share one
+                    matching category; red targets can cause immediate mission
+                    failure.
+                  </p>
+                </div>
+                {TRAINING_MISSIONS.map((m) => (
+                  <button
+                    className="secondary"
+                    key={m.id}
+                    onClick={() => {
+                      adapter.chooseMission!(m.id);
+                      setScreen("intro");
+                    }}
+                  >
+                    {m.name} ·{" "}
+                    {m.id === "circuit-4" ? "Yellow" : "Yellow + Red"}{" "}
+                    <span>→</span>
+                  </button>
+                ))}
+              </section>
+            )}
           </section>
         )}
         {screen === "intro" && (
           <section className="intro-screen page">
-            <div className="eyebrow">RESTORE THE LIGHTS · EASY</div>
+            <div className="eyebrow">
+              {state.missionName ?? "Restore the Lights"} · EASY
+            </div>
             <Ship damaged />
             <h1 ref={heading} tabIndex={-1}>
               A small ship.
@@ -274,6 +311,14 @@ export function App({
               Reconnect the damaged circuits before time or hull integrity runs
               out.
             </p>
+            {!!state.tracker?.specials.length && (
+              <p className="special-brief">
+                Yellow circuits match other yellows, even at different sorting
+                positions. Red circuits are dangerous: targeting red causes
+                immediate failure. Only isolate your own red circuits after
+                every other circuit has been cleared.
+              </p>
+            )}
             <button className="primary" onClick={start}>
               Begin Mission <span>→</span>
             </button>
@@ -428,10 +473,16 @@ export function App({
                   your turn.
                 </li>
                 <li>
-                  Restore all 48 circuits before time or hull runs out. Correct
-                  connections replenish communication energy.
+                  Restore the mission’s circuits before time or hull runs out.
+                  Correct connections replenish communication energy.
                 </li>
               </ol>
+              <p className="muted">
+                The number register tracks blue copies automatically. In special
+                training, yellow circuits match each other regardless of sorting
+                key. Red circuits carry a danger symbol and can end the mission
+                immediately. Hidden colors stay concealed until revealed.
+              </p>
               <p className="muted">
                 Number sequence missions are coming later. Each mission uses one
                 puzzle type.
