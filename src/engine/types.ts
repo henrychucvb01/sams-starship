@@ -1,14 +1,18 @@
-/** Public contracts. Hidden values and random seeds are intentionally absent. */
+/** Revised board-game contracts. Values are present only for own or publicly revealed tiles. */
 export type Difficulty = 'easy' | 'medium' | 'hard';
 export type PuzzleType = 'matching' | 'sequence';
 export type CrewId = 'sam' | 'nova' | 'pip';
-export interface Tuning { pairs: number; hull: number; durationMs: number; damage: number; energy: number; rewardEnergy: number; clueWidth: number; aiEvery: number; sequenceLength: number }
+export interface Participant { id: CrewId; name: string; control: 'human' | 'ai' }
+export interface Tuning { numberMin: number; numberMax: number; copies: number; hull: number; durationMs: number; damage: number; energy: number; rewardEnergy: number; deductionPasses: number }
 export interface Mission { id: string; name: string; puzzle: PuzzleType; availability: 'playable' | 'development' }
-export interface Circuit { id: string; owner: CrewId; restored: boolean; value?: number }
-export interface Clue { slotId: string; min: number; max: number }
-export interface SequenceView { id: string; terms: (number | null)[]; restored: boolean; clue?: string }
-export interface GameEvent { index: number; type: string; message: string }
-export interface GameState { mission: Mission; difficulty: Difficulty; status: 'ready' | 'playing' | 'won' | 'lost'; hull: number; energy: number; remainingMs: number; restored: number; total: number; selected: string | null; circuits: Circuit[]; sequences: SequenceView[]; clues: Clue[]; history: GameEvent[] }
-/** AI receives own values and public disclosures only. */
-export interface AIObservation { self: CrewId; own: Circuit[]; publicCircuits: Circuit[]; clues: Clue[] }
-export type AIAction = { type: 'connect'; ownId: string; targetId: string } | { type: 'wait' };
+export interface Circuit { id: string; owner: CrewId; position: number; restored: boolean; value?: number }
+export interface PublicReveal { circuitId: string; value: number; reason: 'mistake' | 'clue' | 'resolved' }
+export interface IncorrectGuess { participant: CrewId; ownCircuitId: string; targetCircuitId: string; declaredNumber: number; turn: number }
+export type DamageStage = 'normal' | 'light' | 'moderate' | 'critical' | 'destroyed';
+interface EventBase { index: number; turn: number; message: string }
+export type ShipAttackEvent = EventBase & { type: 'SHIP_ATTACK'; source: 'incorrect_connection'; damage: number; hullBefore: number; hullAfter: number; targetCircuitId: string; revealedNumber: number; severity: 'light' | 'medium' | 'critical' };
+export type GameEvent = ShipAttackEvent | (EventBase & { type: 'CONNECTION_SUCCESS'; participant: CrewId; circuitIds: string[]; number: number }) | (EventBase & { type: 'CONNECTION_FAILED'; participant: CrewId; damage: number; targetCircuitId: string; declaredNumber: number; revealedNumber: number }) | (EventBase & { type: 'CLUE_SHARED'; participant: CrewId; circuitId: string; value: number }) | (EventBase & { type: 'STARTED' | 'TURN_STARTED' | 'PASSED' | 'WON' | 'LOST' });
+export interface GameState { mission: Mission; difficulty: Difficulty; status: 'playing' | 'won' | 'lost'; hull: number; maxHull: number; damageStage: DamageStage; energy: number; remainingMs: number; restored: number; total: number; remainingCircuits: number; selected: string | null; participants: Participant[]; currentParticipant: CrewId; turnNumber: number; circuits: Circuit[]; publicReveals: PublicReveal[]; incorrectGuesses: IncorrectGuess[]; history: GameEvent[]; distribution: { min: number; max: number; copies: number }; possibilities: Record<string, number[]> }
+/** No full board, seed, or other participants' private values may enter this input. */
+export interface AIObservation { self: CrewId; circuits: Circuit[]; reveals: PublicReveal[]; incorrectGuesses: IncorrectGuess[]; min: number; max: number; copies: number; energy: number; deductionPasses: number }
+export type AIAction = { type: 'connect'; ownId: string; targetId: string; number: number } | { type: 'solo'; number: number } | { type: 'clue'; circuitId: string } | { type: 'pass' };

@@ -1,44 +1,53 @@
 import { DIFFICULTIES, MISSIONS } from './config';
-import { decideAI } from './ai';
-import { generateMatching, generateSequences, validateSequence } from './puzzles';
-import type { SequencePuzzle } from './puzzles';
-import type { AIObservation, Circuit, CrewId, Difficulty, GameState, Tuning } from './types';
+import { decideAI, deduce } from './ai';
+import { generateMatching } from './puzzles';
+import type { AIObservation, Circuit, CrewId, Difficulty, GameEvent, GameState, PublicReveal, Tuning } from './types';
+const CREW = ['sam','nova','pip'] as const;
+/** Pure synchronous game controller. UI owns all clocks and animation scheduling. */
 export class GameEngine {
- #board: Circuit[]=[]; #sequences: SequencePuzzle[]=[]; #seed=1; #turn=0; #state!: GameState; #tuning!: Tuning;
- constructor(missionId='lights', difficulty: Difficulty='easy', seed=1, overrides: Partial<Tuning>={}) { this.startMission(missionId,difficulty,seed,overrides); }
- /** Explicit time advancement; UI owns scheduling. All durations are milliseconds. */
- startMission(missionId='lights',difficulty: Difficulty='easy',seed=1,overrides: Partial<Tuning>={}): GameState {
- const mission=MISSIONS.find(m=>m.id===missionId); if(!mission||!DIFFICULTIES[difficulty]) throw new Error('Unknown mission or difficulty');
- const tuning={...DIFFICULTIES[difficulty],...overrides};
- for(const [key,value] of Object.entries(tuning)) if(!Number.isSafeInteger(value)||value<0) throw new Error(`Invalid tuning: ${key}`);
- if(tuning.pairs<1||tuning.pairs>99||tuning.hull<1||tuning.durationMs<1||tuning.aiEvery<1||tuning.sequenceLength<4||tuning.sequenceLength>10) throw new Error('Tuning outside supported range');
- if(!Number.isSafeInteger(seed)) throw new Error('Seed must be an integer');
- this.#seed=seed;this.#tuning=tuning;this.#turn=0;
- this.#board=mission.puzzle==='matching'?generateMatching(tuning.pairs,seed):[];
- this.#sequences=mission.puzzle==='sequence'?generateSequences(tuning.pairs,tuning.sequenceLength,difficulty,seed):[];
- this.#state={mission:{...mission},difficulty,status:'playing',hull:tuning.hull,energy:tuning.energy,remainingMs:tuning.durationMs,restored:0,total:tuning.pairs,selected:null,circuits:[],sequences:[],clues:[],history:[]};
- this.#event('started',`${mission.name}: crew isolated; emergency terminals online.`); return this.getGameState();
+ #board: Circuit[]=[]; #seed=1; #state!:GameState; #tuning!:Tuning;
+ constructor(missionId='lights',difficulty:Difficulty='easy',seed=1,overrides:Partial<Tuning>={}){this.startMission(missionId,difficulty,seed,overrides);}
+ startMission(missionId='lights',difficulty:Difficulty='easy',seed=1,overrides:Partial<Tuning>={}):GameState{
+ const mission=MISSIONS.find(m=>m.id===missionId);if(!mission||!DIFFICULTIES[difficulty])throw new Error('Unknown mission or difficulty');if(mission.puzzle!=='matching')throw new Error('Sequence missions are not playable yet');
+ const t={...DIFFICULTIES[difficulty],...overrides};for(const value of Object.values(t))if(!Number.isSafeInteger(value)||value<0)throw new Error('Invalid tuning');
+ if(t.numberMin<1||t.numberMax<t.numberMin||t.numberMax>99||t.copies<2||t.copies>12||t.copies%2||t.hull<1||t.durationMs<1||t.deductionPasses<1||!Number.isSafeInteger(seed))throw new Error('Unsupported tuning');
+ this.#seed=seed;this.#tuning=t;this.#board=generateMatching(t.numberMin,t.numberMax,t.copies,seed);
+ this.#state={mission:{...mission},difficulty,status:'playing',hull:t.hull,maxHull:t.hull,damageStage:'normal',energy:t.energy,remainingMs:t.durationMs,restored:0,total:this.#board.length/2,remainingCircuits:this.#board.length,selected:null,participants:CREW.map(id=>({id,name:id==='sam'?'Sam':id==='nova'?'Nova':'Pip',control:id==='sam'?'human':'ai'})),currentParticipant:'sam',turnNumber:1,circuits:[],publicReveals:[],incorrectGuesses:[],history:[],distribution:{min:t.numberMin,max:t.numberMax,copies:t.copies},possibilities:{}};
+ this.#event({type:'STARTED',message:'Crew isolated. Sorted circuits ready.'});return this.getGameState();
  }
- getGameState(): GameState { return structuredClone({...this.#state,circuits:this.#board.map(({value,...slot})=>slot.owner==='sam'?{...slot,value}:slot),sequences:this.#sequences.map(({answer: _answer,clue,...p})=>({...p,...(this.#state.history.some(e=>e.type===`hint:${p.id}`)?{clue}:{})}))}); }
- selectCircuit(id: string): GameState { this.#active(); const s=this.#board.find(s=>s.id===id&&s.owner==='sam'&&!s.restored); if(!s) throw new Error('Select an unresolved Sam circuit'); this.#state.selected=id;return this.getGameState(); }
- attemptConnection(targetId: string): GameState { this.#active();const own=this.#board.find(s=>s.id===this.#state.selected);const target=this.#board.find(s=>s.id===targetId); if(!own||!target||target.owner==='sam'||own.restored||target.restored) throw new Error('Invalid connection');this.#connect(own,target);this.#state.selected=null;return this.getGameState(); }
- submitSequence(id: string,value: number): GameState { this.#active();const p=this.#sequences.find(p=>p.id===id&&!p.restored);if(!p||!Number.isSafeInteger(value)) throw new Error('Invalid sequence submission');if(validateSequence(p,value)){p.restored=true;this.#restore();this.#event('restored',`${id} restored`);}else this.#damage();return this.getGameState(); }
- /** Each request discloses one bounded interval from that crewmate's own slot. */
- requestHint(id: string): GameState { this.#active();if(this.#state.energy<1) throw new Error('No communication energy');
- const slot=this.#board.find(s=>s.id===id&&s.owner!=='sam'&&!s.restored);const p=this.#sequences.find(p=>p.id===id&&!p.restored);
- if(!slot&&!p) throw new Error('Invalid hint target');
- if(slot){const prior=this.#state.clues.find(c=>c.slotId===id);if(prior&&prior.min===prior.max) throw new Error('Slot already fully disclosed');const width=prior?Math.floor((prior.max-prior.min)/2):this.#tuning.clueWidth;const value=slot.value!;this.#state.clues=this.#state.clues.filter(c=>c.slotId!==id);this.#state.clues.push({slotId:id,min:Math.max(prior?.min??1,value-width),max:Math.min(prior?.max??99,value+width)});}
- else if(this.#state.history.some(e=>e.type===`hint:${id}`)) throw new Error('Clue already transmitted');
- this.#state.energy--;this.#event(`hint:${id}`,slot?`Numerical clue received for ${id}`:`Crew transmitted the pattern for ${id}`);return this.getGameState(); }
- /** Return isolated knowledge for tests/strategy; never another AI's values. */
- #observation(self: Exclude<CrewId,'sam'>): AIObservation { if(self!=='nova'&&self!=='pip') throw new Error('Invalid AI');return structuredClone({self,own:this.#board.filter(s=>s.owner===self),publicCircuits:this.#board.map(({value:_v,...s})=>s),clues:this.#state.clues}); }
- shareCircuit(id: string): GameState { this.#active();const slot=this.#board.find(s=>s.id===id&&s.owner==='sam'&&!s.restored);if(!slot||this.#state.energy<1||this.#state.clues.some(c=>c.slotId===id))throw new Error('Cannot transmit circuit');this.#state.energy--;this.#state.clues.push({slotId:id,min:slot.value!,max:slot.value!});this.#event('transmitted',`Sam transmitted ${id}`);return this.getGameState(); }
- advanceAI(): GameState { this.#active();this.#turn++;if(this.#turn%this.#tuning.aiEvery===0){for(const self of ['nova','pip'] as const){const action=decideAI(this.#observation(self));if(action.type==='connect'){const own=this.#board.find(s=>s.id===action.ownId)!;const target=this.#board.find(s=>s.id===action.targetId)!;this.#connect(own,target);break;}}}return this.getGameState(); }
- advanceTime(elapsedMs: number): GameState { if(!Number.isFinite(elapsedMs)||elapsedMs<0)throw new Error('Invalid elapsed time');if(this.#state.status==='playing'){this.#state.remainingMs=Math.max(0,this.#state.remainingMs-elapsedMs);if(this.#state.remainingMs===0){this.#state.status='lost';this.#event('lost','Emergency power expired');}}return this.getGameState(); }
- restartMission(): GameState { return this.startMission(this.#state.mission.id,this.#state.difficulty,this.#seed,this.#tuning); }
+ getGameState():GameState{return structuredClone({...this.#state,circuits:this.#view('sam').circuits,possibilities:deduce(this.#view('sam'))});}
+ getEvents(afterIndex=-1):GameEvent[]{return structuredClone(this.#state.history.filter(e=>e.index>afterIndex));}
+ selectCircuit(id:string):GameState{this.#human();const c=this.#slot(id);if(c.owner!=='sam')throw new Error('Select a Sam circuit');this.#state.selected=id;return this.getGameState();}
+ attemptConnection(targetId:string,declaredNumber:number):GameState{this.#human();if(!this.#state.selected)throw new Error('Select your circuit first');this.#connect(this.#state.selected,targetId,declaredNumber);return this.getGameState();}
+ requestHint(id:string):GameState{this.#human();const c=this.#slot(id);if(c.owner==='sam')throw new Error('Request a crew clue or use shareCircuit');this.#clue(c);this.#next();return this.getGameState();}
+ shareCircuit(id:string):GameState{this.#human();const c=this.#slot(id);if(c.owner!=='sam')throw new Error('Can only share own circuit');this.#clue(c);this.#next();return this.getGameState();}
+ resolveSolo(number:number):GameState{this.#human();this.#solo(number);return this.getGameState();}
+ passTurn():GameState{this.#human();this.#event({type:'PASSED',message:'Sam passed'});this.#next();return this.getGameState();}
+ advanceAI():GameState{this.#active();if(this.#state.currentParticipant==='sam')throw new Error('Human turn');const action=decideAI(this.#view(this.#state.currentParticipant));
+ if(action.type==='connect')this.#connect(action.ownId,action.targetId,action.number);
+ else if(action.type==='solo')this.#solo(action.number);
+ else {if(action.type==='clue')this.#clue(this.#slot(action.circuitId));else this.#event({type:'PASSED',message:`${this.#state.currentParticipant} has no certain match or clue energy`});this.#next();}return this.getGameState();}
+ advanceTime(elapsedMs:number):GameState{if(!Number.isFinite(elapsedMs)||elapsedMs<0)throw new Error('Invalid elapsed time');if(this.#state.status==='playing'){this.#state.remainingMs=Math.max(0,this.#state.remainingMs-elapsedMs);if(!this.#state.remainingMs){this.#state.status='lost';this.#event({type:'LOST',message:'Emergency power expired'});}}return this.getGameState();}
+ restartMission():GameState{return this.startMission(this.#state.mission.id,this.#state.difficulty,this.#seed,this.#tuning);}
+ #view(self:CrewId):AIObservation{return structuredClone({self,circuits:this.#board.map(({value,...c})=>{const reveal=this.#state.publicReveals.find(r=>r.circuitId===c.id);return c.owner===self||reveal?{...c,value:reveal?.value??value}:c;}),reveals:this.#state.publicReveals,incorrectGuesses:this.#state.incorrectGuesses,min:this.#tuning.numberMin,max:this.#tuning.numberMax,copies:this.#tuning.copies,energy:this.#state.energy,deductionPasses:this.#tuning.deductionPasses});}
  #active(){if(this.#state.status!=='playing')throw new Error('Mission is not active');}
- #event(type:string,message:string){this.#state.history.push({index:this.#state.history.length,type,message});}
- #connect(a:Circuit,b:Circuit){if(a.value===b.value){a.restored=b.restored=true;this.#restore();this.#event('restored',`${a.id} connected to ${b.id}`);}else this.#damage();}
- #restore(){this.#state.restored++;this.#state.energy+=this.#tuning.rewardEnergy;if(this.#state.restored===this.#state.total){this.#state.status='won';this.#event('won','All circuits restored');}}
- #damage(){this.#state.hull=Math.max(0,this.#state.hull-this.#tuning.damage);this.#event('mistake','Connection failed; hull damaged');if(this.#state.hull===0){this.#state.status='lost';this.#event('lost','Hull integrity lost');}}
+ #human(){this.#active();if(this.#state.currentParticipant!=='sam')throw new Error('Wait for Sam turn');}
+ #slot(id:string){const c=this.#board.find(c=>c.id===id&&!c.restored);if(!c)throw new Error('Circuit unavailable');return c;}
+ #event(event:GameEvent extends infer E ? E extends GameEvent ? Omit<E,'index'|'turn'> : never : never){this.#state.history.push({...event,index:this.#state.history.length,turn:this.#state.turnNumber} as GameEvent);}
+ #reveal(c:Circuit,reason:PublicReveal['reason']){const old=this.#state.publicReveals.find(r=>r.circuitId===c.id);if(old){if(reason==='resolved')old.reason=reason;}else this.#state.publicReveals.push({circuitId:c.id,value:c.value!,reason});}
+ #clue(c:Circuit){if(this.#state.energy<1||this.#state.publicReveals.some(r=>r.circuitId===c.id))throw new Error('No energy or circuit already public');this.#state.energy--;this.#reveal(c,'clue');this.#event({type:'CLUE_SHARED',participant:this.#state.currentParticipant,circuitId:c.id,value:c.value!,message:'Emergency terminal transmitted one number'});}
+ #connect(ownId:string,targetId:string,number:number){const own=this.#slot(ownId),target=this.#slot(targetId),actor=this.#state.currentParticipant;
+ if(own.owner!==actor||target.owner===actor||!Number.isSafeInteger(number)||number!==own.value)throw new Error('Declare the number on your selected circuit');
+ if(target.value===number){this.#resolve([own,target],number);}else{
+ const before=this.#state.hull;this.#state.hull=Math.max(0,before-this.#tuning.damage);const damage=before-this.#state.hull;this.#reveal(target,'mistake');this.#state.incorrectGuesses.push({participant:actor,ownCircuitId:own.id,targetCircuitId:target.id,declaredNumber:number,turn:this.#state.turnNumber});
+ this.#event({type:'CONNECTION_FAILED',participant:actor,damage,targetCircuitId:target.id,declaredNumber:number,revealedNumber:target.value!,message:'Connection failed; target revealed'});
+ this.#stage();this.#event({type:'SHIP_ATTACK',source:'incorrect_connection',damage,hullBefore:before,hullAfter:this.#state.hull,targetCircuitId:target.id,revealedNumber:target.value!,severity:this.#state.hull/this.#tuning.hull<=0.25?'critical':this.#state.hull/this.#tuning.hull<=0.5?'medium':'light',message:'Enemy impact'});
+ if(!this.#state.hull){this.#state.status='lost';this.#event({type:'LOST',message:'Hull integrity lost'});}}
+ this.#next();}
+ #solo(number:number){if(!Number.isSafeInteger(number))throw new Error('Invalid number');const own=this.#board.filter(c=>c.owner===this.#state.currentParticipant&&!c.restored&&c.value===number);const resolved=this.#state.publicReveals.filter(r=>r.value===number&&this.#board.find(c=>c.id===r.circuitId)?.restored).length;
+ // Eligibility is provable from own inventory plus PUBLIC resolved counts, never a hidden-board query.
+ if(!own.length||own.length!==this.#tuning.copies-resolved)throw new Error('Solo resolution is not eligible');this.#resolve(own,number);this.#next();}
+ #resolve(slots:Circuit[],number:number){for(const c of slots){c.restored=true;this.#reveal(c,'resolved');}this.#state.restored+=slots.length/2;this.#state.remainingCircuits-=slots.length;this.#state.energy+=this.#tuning.rewardEnergy;this.#event({type:'CONNECTION_SUCCESS',participant:this.#state.currentParticipant,circuitIds:slots.map(c=>c.id),number,message:'Matching circuits restored'});if(!this.#state.remainingCircuits){this.#state.status='won';this.#event({type:'WON',message:'All circuits restored'});}}
+ #stage(){const p=this.#state.hull/this.#tuning.hull;this.#state.damageStage=p===0?'destroyed':p<=.25?'critical':p<=.5?'moderate':p<=.75?'light':'normal';}
+ #next(){this.#state.selected=null;if(this.#state.status!=='playing')return;let i=CREW.indexOf(this.#state.currentParticipant);do{i=(i+1)%3;}while(!this.#board.some(c=>c.owner===CREW[i]&&!c.restored));this.#state.currentParticipant=CREW[i];this.#state.turnNumber++;this.#event({type:'TURN_STARTED',message:`${CREW[i]} turn`});}
 }
