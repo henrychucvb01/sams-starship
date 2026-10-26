@@ -15,10 +15,10 @@ Run `npm ci`, `npm test`, `npm run build` (Node 22.12+). Build checks strict Typ
 Import `GameEngine`, `MISSIONS`, `DIFFICULTIES`, and types from `src/engine/index.ts`.
 
 - `new GameEngine(missionId='lights', difficulty='easy', seed=1, overrides={})` / `startMission(...)`: start with Sam, turn 1. Full restart is atomic on invalid configuration. Tuning now uses `numberMin`, `numberMax`, `copies`, `hull`, `durationMs`, `damage`, `energy`, `rewardEnergy`, `deductionPasses`. Removed the old pairs/clueWidth/aiEvery/sequenceLength tuning fields. Copies must be even (2–12), range 1–99; standard defaults are four copies of 1–12. Same seed and settings replay identically.
-- `getGameState()`: detached player-visible snapshot. See types.ts for documented contracts. Own tiles show value; other tiles omit it unless publicly revealed by clue, mistake or resolution. No seed/answer board is returned. `possibilities[id]` contains conservative human deductions, not private answers.
+- `getGameState()`: detached player-visible snapshot. See types.ts for documented contracts. Own tiles show value; other tiles omit it unless publicly revealed by clue, mistake or resolution. No seed/answer board is returned. `possibilities` is now empty by default; logical assistance is available only through the charged Hint tool.
 - `selectCircuit(samCircuitId)`: selection only; no turn spent.
 - `attemptConnection(targetCircuitId, declaredNumber)`: declaration is REQUIRED and must equal the selected active Sam tile's number. UI flow: select own tile, choose an opponent tile, type a number, submit. Declaring a different number, missing arguments, wrong ownership, inactive tiles, or off-turn actions throw without changing gameplay. Valid correct and incorrect attempts both end the turn.
-- `requestHint(otherCircuitId)`: spend one shared energy to reveal ONE active target's number publicly, then end turn. This is the target owner's truthful terminal response. Cannot repeat an already public clue.
+- `requestHint(otherCircuitId, toolToken)`: legacy alias for the limited logical Hint tool; the target argument is ignored. Exact-answer target hints are removed. Prefer generateHint(toolToken).
 - `shareCircuit(ownCircuitId)`: spend one energy to publicly transmit ONE Sam number; end turn.
 - `resolveSolo(number)`: resolve all active Sam tiles of that number ONLY if they account for every remaining copy. Eligibility follows own inventory + public resolved counts; no information about hidden locations is returned on rejection. Successful solo action ends turn and emits CONNECTION_SUCCESS with all resolved IDs.
 - `passTurn()`: human may pass when no desired action is available.
@@ -76,3 +76,25 @@ Private solution is stored in JS private fields, not state/events/debug logs. UI
 ## React coordination
 
 Retain one engine in useRef and snapshot in React state. Replace the previous adapter's one-argument attemptConnection and timer-driven advanceAI calls. Disable actions off Sam's turn. Show declarations, public mistake history, turn labels, solo and pass actions. Consume structured events instead of interpreting log messages. Keep UI/animation state outside engine. This branch does not overwrite Agent 2's adapter or shared application configuration; bring these engine files into the UI branch and resolve those integration changes there.
+
+
+# Self-Match and Support Tools update
+
+Self-Match is a standard move. `selfMatch(firstSamTileId, secondSamTileId)` checks two distinct equal active tiles. If every unresolved copy belongs to Sam, ALL remaining copies (four or two with standard settings) resolve together. `resolveSolo(number)` remains a compatible shortcut with the same validation. No charge or energy cost. AI uses identical eligibility through its existing solo action. Invalid attempts emit SELF_MATCH_INVALID and throw a clear explanation; hull, turn and inventory do not change. `selfMatches` exposes Sam-only eligibility and explanations even on AI turns. Tile positions remain fixed.
+
+Pass a fifth constructor/startMission argument for per-tool configuration, e.g. `{ scanner: { uses: 2, unlocked: true }, hint: { uses: 0, unlocked: false } }`. Each of scanner, dualScanner, shield and hint defaults to one unlocked use. Restart restores the configured charges. The unlocked flag is a hook for future mission progression; automatic progression unlocks are not implemented.
+
+`state.tools[id]` exposes unlocked, remaining `uses`, `available` and `validTargetIds`. Only active hidden opponent tiles are eligible scanner/dual targets. Shield/Hint are untargeted. For Dual Scanner, UI also needs a selected active Sam tile and TWO distinct validTargetIds. Charges never regenerate. Standard restoration energy rewards do not restore tool charges.
+
+Every tool call REQUIRES the `toolToken` from the rendered state. Capture it in the click handler; DO NOT fetch a fresh token for a queued duplicate click. Successful activations invalidate it immediately; turns and restarts also invalidate it. Reusing the same request cannot spend another charge, even when configured with multiple uses. Invalid commands do not spend charges or advance turns. Disable buttons while handling/animating a request as well.
+
+| API | Effect | Ends turn |
+| --- | --- | --- |
+| `scanCircuit(hiddenId, threshold, token)` | Public below/equal/above comparison, stored in scannerResults and available to all AI deductions. Threshold must be an integer inside the mission range. No raw hidden value returned. | Yes |
+| `dualScan(firstHiddenId, secondHiddenId, declaredNumber, token)` | Requires selected owned tile with that number. If either target matches, resolves own tile and first matching target only; does not disclose the unchosen target. If neither matches, records both exclusions, applies ONE incorrect-connection consequence and reveals only the first target. | Yes |
+| `activateShield(token)` | Arms a team shield until the next incorrect connection, including AI/dual failures. No stacking. Correct moves do not consume the shield. It prevents exactly one damage penalty while mistake reveals still occur. | No |
+| `generateHint(token)` | One limited deduction from Sam's own sorted row, public revelations, mistakes and scanner results. May give a logically certain singleton, but never consults private target values. If no narrower domain exists, gives a truthful general strategy statement. No board-wide answer reveal. | No |
+
+SupportEvent extends the existing GameEvent union with SELF_MATCH_SUCCESS / SELF_MATCH_INVALID, SCANNER_ACTIVATED, DUAL_SCANNER_SUCCESS / DUAL_SCANNER_FAILED, SHIELD_ACTIVATED / SHIELD_PREVENTED and HINT_GENERATED. Each has participant, circuitIds, index, turn and message; number, scanner, possibilities and damagePrevented are present as applicable. Self-Match also emits the existing CONNECTION_SUCCESS for compatibility; animate it once rather than twice. Shield prevention still emits SHIP_ATTACK with actual damage 0 and unchanged hull; animate shield interception using SHIELD_PREVENTED. A failed dual scan emits one attack, never two. Invalid Self-Match changes history only.
+
+Agent 2: add a Self-Match selection mode for two own tiles; use selfMatches explanations to explain unavailable matches. Add tool buttons/threshold input/two-target mode, and consume these events using the existing cursor. No UI/adapter files are changed by this engine update. Existing exact requestHint calls need replacement and token handling. Sequence missions still remain unavailable.
