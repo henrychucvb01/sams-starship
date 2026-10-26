@@ -4,6 +4,7 @@ import {
   useRef,
   useState,
   type RefObject,
+  type PointerEvent as ReactPointerEvent,
 } from "react";
 import type {
   MissionAdapter,
@@ -11,6 +12,8 @@ import type {
   Slot,
   ToolId,
 } from "../types/presentation";
+import { NumberTracker } from "./NumberTracker";
+import { ConnectionOverlay } from "./ConnectionOverlay";
 import { Toolkit } from "./Toolkit";
 import { Sam, Ship } from "./Ship";
 const clock = (s: number) =>
@@ -64,6 +67,25 @@ export function CircuitBoard({
   onLeave: () => void;
   headingRef: RefObject<HTMLHeadingElement | null>;
 }) {
+  const [drag, setDrag] = useState<{
+    from: string;
+    x1: number;
+    y1: number;
+    x2: number;
+    y2: number;
+    over: string | null;
+  } | null>(null);
+  const pointer = useRef<{
+    id: number;
+    source: string;
+    x: number;
+    y: number;
+    active: boolean;
+    cx: number;
+    cy: number;
+  } | null>(null);
+  const suppressClick = useRef(false);
+  const [dragNotice, setDragNotice] = useState("");
   const [own, setOwn] = useState("");
   const [target, setTarget] = useState("");
   const [secondOwn, setSecondOwn] = useState("");
@@ -74,6 +96,8 @@ export function CircuitBoard({
     (s) => s.id === secondOwn && !s.restored,
   );
   const clearSelection = () => {
+    setDrag(null);
+    pointer.current = null;
     setOwn("");
     setTarget("");
     setSecondOwn("");
@@ -140,6 +164,138 @@ export function CircuitBoard({
   }, [effect]);
   const turn = state.board?.turn;
   const canAct = state.status === "playing" && (!turn || turn === "sam");
+  function beginDrag(
+    event: ReactPointerEvent<HTMLButtonElement>,
+    slot: Slot,
+    owner: string,
+  ) {
+    if (
+      !event.isPrimary ||
+      !!pointer.current ||
+      !canAct ||
+      busy ||
+      selectedTool ||
+      owner !== "sam" ||
+      slot.restored ||
+      event.button !== 0
+    )
+      return;
+    if (
+      event.pointerType === "touch" &&
+      !(event.target as Element).closest("[data-drag-grip]")
+    )
+      return;
+    pointer.current = {
+      id: event.pointerId,
+      source: slot.id,
+      x: event.clientX,
+      y: event.clientY,
+      active: false,
+      cx: event.clientX,
+      cy: event.clientY,
+    };
+    suppressClick.current = false;
+    setDragNotice("");
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+  const dragFrame = useRef<number | undefined>(undefined);
+  useEffect(
+    () => () => {
+      if (dragFrame.current) cancelAnimationFrame(dragFrame.current);
+    },
+    [],
+  );
+  function trackPointer() {
+    dragFrame.current = undefined;
+    const p = pointer.current,
+      board = boardRef.current;
+    if (!p?.active || !board) return;
+    if (p.cy < 55) window.scrollBy(0, -12);
+    else if (p.cy > window.innerHeight - 55) window.scrollBy(0, 12);
+    const under = document.elementFromPoint(p.cx, p.cy);
+    const row = under?.closest<HTMLElement>(".rack-scroll");
+    if (row) {
+      const r = row.getBoundingClientRect();
+      if (p.cx < r.left + 25) row.scrollLeft -= 8;
+      else if (p.cx > r.right - 25) row.scrollLeft += 8;
+    }
+    const source = board.querySelector(`[data-slot="${CSS.escape(p.source)}"]`);
+    const box = board.getBoundingClientRect();
+    const start = source?.getBoundingClientRect();
+    const target = under?.closest<HTMLButtonElement>("button[data-slot]");
+    setDrag({
+      from: p.source,
+      x1: start ? start.left + start.width / 2 - box.left : p.x - box.left,
+      y1: start ? start.top + start.height / 2 - box.top : p.y - box.top,
+      x2: p.cx - box.left,
+      y2: p.cy - box.top,
+      over:
+        target && board.contains(target) && !target.disabled
+          ? (target.dataset.slot ?? null)
+          : null,
+    });
+    dragFrame.current = requestAnimationFrame(trackPointer);
+  }
+  function moveDrag(event: ReactPointerEvent<HTMLButtonElement>) {
+    const p = pointer.current;
+    const board = boardRef.current;
+    if (!p || p.id !== event.pointerId || !board) return;
+    if (!p.active && Math.hypot(event.clientX - p.x, event.clientY - p.y) < 8)
+      return;
+    p.active = true;
+    p.cx = event.clientX;
+    p.cy = event.clientY;
+    if (!dragFrame.current)
+      dragFrame.current = requestAnimationFrame(trackPointer);
+    event.preventDefault();
+  }
+  function endDrag(event: ReactPointerEvent<HTMLButtonElement>) {
+    const p = pointer.current;
+    if (!p || p.id !== event.pointerId) return;
+    pointer.current = null;
+    setDrag(null);
+    if (event.currentTarget.hasPointerCapture(event.pointerId))
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    if (!p.active) return;
+    suppressClick.current = true;
+    const el = document
+      .elementFromPoint(event.clientX, event.clientY)
+      ?.closest<HTMLButtonElement>("button[data-slot]");
+    const id = el?.dataset.slot;
+    if (
+      !el ||
+      !id ||
+      el.disabled ||
+      !boardRef.current?.contains(el) ||
+      id === p.source
+    ) {
+      setDragNotice("Connection canceled. Nothing was submitted.");
+      return;
+    }
+    const source = state.ownCircuits.find(
+      (s) => s.id === p.source && !s.restored,
+    );
+    if (!source || !canAct) return;
+    const same = state.ownCircuits.find((s) => s.id === id && !s.restored);
+    if (
+      same &&
+      same.value !== source.value &&
+      !(same.type === "yellow" && source.type === "yellow")
+    ) {
+      setDragNotice("Choose a matching Sam circuit, or a crew circuit.");
+      return;
+    }
+    setSelectedTool(null);
+    setOwn(p.source);
+    setSecondOwn(same ? id : "");
+    setTarget(same ? "" : id);
+    setDeclaring(true);
+  }
+  function cancelDrag() {
+    pointer.current = null;
+    setDrag(null);
+    setDragNotice("Connection canceled. Nothing was submitted.");
+  }
   const ownSlot = state.ownCircuits.find((s) => s.id === own && !s.restored);
   const targetRoom = state.rooms.find((r) =>
     r.slots.some((s) => s.id === target),
@@ -157,12 +313,14 @@ export function CircuitBoard({
       setDeclaring(false);
   }, [ownSlot?.id, targetSlot?.id, secondOwnSlot?.id, canAct]);
   function selectOwn(id: string) {
+    setDragNotice("");
     const clicked = state.ownCircuits.find((s) => s.id === id);
     if (
       !selectedTool &&
       ownSlot &&
       id !== own &&
-      clicked?.value === ownSlot.value
+      (clicked?.value === ownSlot.value ||
+        (clicked?.type === "yellow" && ownSlot.type === "yellow"))
     ) {
       setSecondOwn(id);
       setTarget("");
@@ -174,6 +332,7 @@ export function CircuitBoard({
     setDeclaring(!!targetSlot && !selectedTool);
   }
   function selectTarget(id: string) {
+    setDragNotice("");
     if (selectedTool) {
       setToolTargets((ids) =>
         ids.includes(id)
@@ -191,6 +350,7 @@ export function CircuitBoard({
   function connect() {
     if (busy || !canAct || !ownSlot || (!targetSlot && !secondOwnSlot)) return;
     setBusy(true);
+    setDragNotice("");
     try {
       if (secondOwnSlot) adapter.selfMatch?.([ownSlot.id, secondOwnSlot.id]);
       else if (targetSlot) adapter.connect(ownSlot.id, targetSlot.id);
@@ -240,7 +400,21 @@ export function CircuitBoard({
       <button
         key={slot.id}
         data-slot={slot.id}
-        className={`wire-tile ${value !== undefined ? "known" : "secret"} ${selected ? "chosen" : ""} ${validToolTarget && owner !== "sam" && !slot.restored ? "tool-target" : ""} ${slot.restored ? "cleared" : ""} ${exact !== undefined ? "disclosed" : ""} ${affected ? `wire-${effect?.kind}` : ""}`}
+        data-circuit-type={slot.type ?? "hidden"}
+        onPointerDown={(e) => beginDrag(e, slot, owner)}
+        onPointerMove={moveDrag}
+        onPointerUp={endDrag}
+        onPointerCancel={cancelDrag}
+        onLostPointerCapture={() => {
+          if (pointer.current) cancelDrag();
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") {
+            cancelDrag();
+            setDeclaring(false);
+          }
+        }}
+        className={`wire-tile ${slot.type ? `circuit-${slot.type}` : ""} ${drag?.over === slot.id ? "drop-ready" : ""} ${value !== undefined ? "known" : "secret"} ${selected ? "chosen" : ""} ${validToolTarget && owner !== "sam" && !slot.restored ? "tool-target" : ""} ${slot.restored ? "cleared" : ""} ${exact !== undefined ? "disclosed" : ""} ${affected ? `wire-${effect?.kind}` : ""}`}
         disabled={
           !canAct ||
           slot.restored ||
@@ -251,16 +425,44 @@ export function CircuitBoard({
               : !validToolTarget))
         }
         aria-pressed={selected}
-        aria-label={`${owner === "sam" ? "Sam circuit" : `${owner}, slot ${index + 1}`}${value !== undefined ? ` ${value}, slot ${index + 1}` : exact !== undefined ? `, clue ${exact}` : ", hidden"}${slot.restored ? ", restored" : ""}`}
-        onClick={() =>
-          owner === "sam" ? selectOwn(slot.id) : selectTarget(slot.id)
-        }
+        aria-label={`${owner === "sam" ? "Sam circuit" : `${owner}, slot ${index + 1}`}${value !== undefined ? ` ${value}, slot ${index + 1}` : exact !== undefined ? `, clue ${exact}` : ", hidden"}${slot.restored ? ", restored" : ""}${slot.type === "yellow" ? ", yellow special circuit" : slot.type === "red" ? ", red dangerous circuit" : ""}`}
+        onClick={() => {
+          if (suppressClick.current) {
+            suppressClick.current = false;
+            return;
+          }
+          owner === "sam" ? selectOwn(slot.id) : selectTarget(slot.id);
+        }}
       >
         {affected && (effect?.kind === "scan" || effect?.kind === "dual") && (
           <span className="scanner-beam" aria-hidden="true" />
         )}
+        {owner === "sam" && (
+          <span
+            data-drag-grip
+            className="wire-grab"
+            title="Drag grip"
+            aria-hidden="true"
+          >
+            ⠿
+          </span>
+        )}
+        {slot.type && (
+          <span className="circuit-type-mark" aria-hidden="true">
+            {slot.type === "red" ? "⚠" : slot.type === "yellow" ? "◆" : "●"}
+          </span>
+        )}
         <span className="wire-pins" aria-hidden="true" />
-        <strong>{shown ?? "?"}</strong>
+        <strong>
+          {slot.type === "yellow"
+            ? "Y"
+            : slot.type === "red"
+              ? "!"
+              : (shown ?? "?")}
+        </strong>
+        {slot.sortLabel && (
+          <span className="sort-position">{slot.sortLabel}</span>
+        )}
         <span className="wire-index">
           {slot.restored
             ? "✓ CLEARED"
@@ -286,12 +488,13 @@ export function CircuitBoard({
   }
   return (
     <section
-      className={`deduction-screen ${effect?.kind === "damage" ? "screen-impact" : ""}`}
+      className={`deduction-screen ${effect?.kind === "damage" || effect?.kind === "critical" ? "screen-impact" : ""}`}
     >
       <div className="board-heading">
         <div>
           <span className="eyebrow">
-            RESTORE THE LIGHTS · EASY · MATCHING NUMBERS
+            {state.missionName ?? "Restore the Lights"} · EASY · MATCHING
+            NUMBERS
           </span>
           <h1 ref={headingRef} tabIndex={-1}>
             One crew. Every connection counts.
@@ -336,7 +539,38 @@ export function CircuitBoard({
       </div>
       <div className="deduction-layout">
         <div className="board-main">
+          <NumberTracker tracker={state.tracker} />
+          <p className="drag-instructions">
+            Tap two circuits, or drag from Sam’s grip ⠿ to a target. Every
+            connection needs confirmation.
+          </p>
           <div className="board-table" ref={boardRef}>
+            {drag && (
+              <svg className="drag-wire" aria-hidden="true">
+                <path
+                  d={`M${drag.x1} ${drag.y1} Q${(drag.x1 + drag.x2) / 2} ${Math.min(drag.y1, drag.y2) - 30} ${drag.x2} ${drag.y2}`}
+                />
+              </svg>
+            )}
+            <ConnectionOverlay
+              scene={
+                effect
+                  ? {
+                      phase: "result",
+                      outcome: effect.kind,
+                      eventId: effect.id,
+                      circuitIds:effect.slotIds,
+                    }
+                  : declaring
+                    ? {
+                        phase: "confirming",
+                        ownId: own,
+                        targetId: target || secondOwn,
+                      }
+                    : null
+              }
+            />
+
             <div className="board-topline">
               <span className="eyebrow">CREW CIRCUIT BOARD</span>
               <span className="turn-pill" role="status">
@@ -400,7 +634,7 @@ export function CircuitBoard({
                   expression={
                     effect?.kind === "hint"
                       ? "thinking"
-                      : effect?.kind === "damage"
+                      : effect?.kind === "damage" || effect?.kind === "critical"
                         ? "surprised"
                         : state.hull <= 25
                           ? "worried"
@@ -450,7 +684,7 @@ export function CircuitBoard({
             )}
           </div>
           <div className="board-instruction" role="status">
-            {state.event.text}
+            {dragNotice || state.event.text}
           </div>
           <div className="selection-tray">
             <span>
@@ -485,7 +719,7 @@ export function CircuitBoard({
               }}
             >
               <div>
-                <span className="eyebrow">DECLARE YOUR CONNECTION</span>
+                <span className="eyebrow">ARE YOU SURE?</span>
                 <p>
                   Connect Sam’s <strong>{ownSlot.value}</strong> to{" "}
                   {secondOwnSlot
@@ -630,6 +864,18 @@ export function CircuitBoard({
             >
               Resolve selected number alone
             </button>
+            {ownSlot?.type === "red" && (
+              <button
+                className="secondary compact"
+                disabled={!canAct}
+                onClick={() => {
+                  adapter.isolateRed?.(ownSlot.id);
+                  clearSelection();
+                }}
+              >
+                Isolate selected red
+              </button>
+            )}
             <small>
               Solo works only when Sam holds every remaining copy. The engine
               checks eligibility.
@@ -649,7 +895,7 @@ export function CircuitBoard({
         </div>
         <aside className="board-companion">
           <div
-            className={`attack-scene hull-${hullStage} ${effect?.kind === "damage" ? "under-attack" : ""} ${effect?.kind === "success" ? "system-restoring" : ""}`}
+            className={`attack-scene hull-${hullStage} ${effect?.kind === "damage" ? "under-attack" : effect?.kind === "critical" ? "critical-failure" : ""} ${effect?.kind === "success" ? "system-restoring" : ""}`}
             data-effect={effect?.id}
             aria-label={`Spaceship condition: ${hullStage}`}
           >
@@ -681,6 +927,11 @@ export function CircuitBoard({
                 <span className="spark spark-a" />
                 <span className="spark spark-b" />
                 <span className="spark spark-c" />
+              </div>
+            )}
+            {effect?.kind === "critical" && (
+              <div className="critical-flash" role="status">
+                ⚠ RED CIRCUIT · CRITICAL FAILURE
               </div>
             )}
             <span className="ship-smoke" aria-hidden="true">

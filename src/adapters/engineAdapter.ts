@@ -1,13 +1,17 @@
-import { GameEngine } from "../engine";
+import { GameEngine, MISSIONS } from "../engine";
 import type { GameState, Tuning, ToolSettings } from "../engine";
 import type { MissionAdapter, MissionView } from "../types/presentation";
+export const TRAINING_MISSIONS = MISSIONS.filter(
+  (m) => m.id === "circuit-4" || m.id === "circuit-7",
+).map(({ id, name }) => ({ id, name }));
 /** The engine's redacted public state is the only source of board information. */
 export function createEngineAdapter(
   seed = crypto.getRandomValues(new Uint32Array(1))[0],
   tuning: Partial<Tuning> = {},
   toolSettings: Partial<ToolSettings> = {},
+  missionId = "lights",
 ): MissionAdapter {
-  const engine = new GameEngine("lights", "easy", seed, tuning, {
+  const engine = new GameEngine(missionId, "easy", seed, tuning, {
     scanner: { uses: 1, unlocked: false },
     dualScanner: { uses: 1, unlocked: false },
     ...toolSettings,
@@ -28,7 +32,10 @@ export function createEngineAdapter(
       if (e.type === "CONNECTION_FAILED")
         return `${e.participant}: declared ${e.declaredNumber} at ${label(e.targetCircuitId)}. Incorrect; publicly revealed ${e.revealedNumber}.`;
       if (e.type === "CONNECTION_SUCCESS")
-        return `${e.participant}: restored ${e.circuitIds.length} circuits with number ${e.number}.`;
+        return s.circuits.find((c) => c.id === e.circuitIds[0])?.kind ===
+          "yellow"
+          ? `${e.participant}: restored ${e.circuitIds.length} yellow circuits.`
+          : `${e.participant}: restored ${e.circuitIds.length} circuits with number ${e.number}.`;
       if (e.type === "SCANNER_ACTIVATED")
         return `${label(e.circuitIds[0])}: ${e.message}`;
       if (e.type === "CLUE_SHARED")
@@ -53,6 +60,11 @@ export function createEngineAdapter(
                 : "ready";
     const slot = (c: GameState["circuits"][number]) => ({
       id: c.id,
+      type: c.kind,
+      sortLabel:
+        c.kind && c.kind !== "blue" && c.value !== undefined
+          ? `sort ${c.value}`
+          : undefined,
       restored: c.restored,
       clue:
         c.owner !== "sam" && c.value !== undefined
@@ -91,6 +103,31 @@ export function createEngineAdapter(
     };
     const hint = s.history.filter((e) => e.type === "HINT_GENERATED").at(-1);
     return {
+      missionName: s.mission.name,
+      tracker: {
+        numbers: (s.numberTracker ?? []).map((n) => ({
+          number: n.number,
+          resolved: n.resolvedCopies,
+          total: n.totalCopies,
+          complete: n.completed,
+        })),
+        specials: (s.specialTracker ?? [])
+          .filter((p) => p.totalCopies > 0)
+          .map((p) => ({
+            type: p.kind,
+            resolved: p.resolvedCopies,
+            total: p.totalCopies,
+            complete: p.completed,
+            positionLabel: [
+              p.candidates.length
+                ? `Possible sorting positions: ${p.candidates.map((c) => c.sortValue).join(", ")}`
+                : "No candidate positions disclosed",
+              p.confirmed.length
+                ? `Known: ${p.confirmed.map((c) => `${label(c.circuitId)} at ${c.sortValue}${c.resolved ? " (cleared)" : ""}`).join("; ")}`
+                : "No confirmed positions",
+            ].join(" · "),
+          })),
+      },
       tools: (["scanner", "dualScanner", "shield", "hint"] as const).map(
         (id) => ({
           id: id === "dualScanner" ? "dual-scanner" : id,
@@ -165,6 +202,10 @@ export function createEngineAdapter(
       history: s.history.map((e) => ({ id: e.index, text: text(e) })),
       effects: s.history
         .flatMap<NonNullable<MissionView["effects"]>[number]>((e) => {
+          if (e.type === "RED_SAFELY_RESOLVED")
+            return [{ id: e.index, kind: "success", slotIds: e.circuitIds }];
+          if (e.type === "RED_TRIGGERED")
+            return [{ id: e.index, kind: "critical", slotIds: e.circuitIds }];
           if (e.type === "CONNECTION_SUCCESS")
             return [
               {
@@ -318,6 +359,21 @@ export function createEngineAdapter(
         if (!own || own.value === undefined)
           throw new Error("Select your circuit first");
         engine.resolveSolo(own.value);
+      }),
+    chooseMission: (id) => {
+      stop();
+      feedback = null;
+      engine.startMission(id, "easy", seed, tuning, {
+        scanner: { uses: 1, unlocked: false },
+        dualScanner: { uses: 1, unlocked: false },
+        ...toolSettings,
+      });
+      duration = engine.getGameState().remainingMs;
+      publish();
+    },
+    isolateRed: (id) =>
+      run(() => {
+        engine.resolveRedSafely(id);
       }),
     restart: () => {
       stop();
