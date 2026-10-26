@@ -13,3 +13,10 @@ export const MISSIONS: readonly Mission[] = [
 
 /** Per-mission overrides may lock tools now; progress unlock policy is deferred. */
 export const DEFAULT_TOOLS = Object.freeze({scanner:{uses:1,unlocked:true},dualScanner:{uses:1,unlocked:true},shield:{uses:1,unlocked:true},hint:{uses:1,unlocked:true}});
+
+
+/** Stage definitions remain development content until Agent 2 supplies special-circuit UI. */
+export function specialRulesForStage(stage: number): import('./types').SpecialRules {
+ return {yellowPositions:stage>=4?[2.5,5.5,8.5,11.5]:[],redPositions:stage>=7?[4.25,9.25]:[],redInstantFailure:true,redSafeRule:'after-other-circuits',showCandidates:true};
+}
+for(let stage=1;stage<=9;stage++) (MISSIONS as Mission[]).push({id:`circuit-${stage}`,name:`Circuit Training ${stage}`,puzzle:'matching',availability:'development',stage,specials:specialRulesForStage(stage)});
