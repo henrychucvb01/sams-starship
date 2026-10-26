@@ -1,48 +1,75 @@
 import { GameEngine } from "../engine";
-import type { GameState } from "../engine";
+import type { GameState, Tuning } from "../engine";
 import type { MissionAdapter, MissionView } from "../types/presentation";
-/** Only the redacted public snapshot crosses this boundary. Never import generators. */
+/** The engine's redacted public state is the only source of board information. */
 export function createEngineAdapter(
   seed = crypto.getRandomValues(new Uint32Array(1))[0],
+  tuning: Partial<Tuning> = {},
 ): MissionAdapter {
-  const engine = new GameEngine("lights", "easy", seed);
+  const engine = new GameEngine("lights", "easy", seed, tuning);
   const listeners = new Set<() => void>();
   let duration = engine.getGameState().remainingMs;
   let timer: ReturnType<typeof setInterval> | undefined;
   let last = 0;
-  let aiElapsed = 0;
+  let aiDue = Infinity;
+  let scheduledTurn = -1;
   let feedback: string | null = null;
   const map = (s: GameState): MissionView => {
+    const label = (id: string) => {
+      const c = s.circuits.find((c) => c.id === id)!;
+      return `${c.owner === "nova" ? "Nova" : c.owner === "pip" ? "Pip" : "Sam"}, slot ${c.position + 1}`;
+    };
+    const text = (e: GameState["history"][number]): string => {
+      if (e.type === "CONNECTION_FAILED")
+        return `${e.participant}: declared ${e.declaredNumber} at ${label(e.targetCircuitId)}. Incorrect; publicly revealed ${e.revealedNumber}.`;
+      if (e.type === "CONNECTION_SUCCESS")
+        return `${e.participant}: restored ${e.circuitIds.length} circuits with number ${e.number}.`;
+      if (e.type === "CLUE_SHARED")
+        return `${label(e.circuitId)}: my number is ${e.value}.`;
+      return e.message;
+    };
     const event = s.history.at(-1)!;
+    const action = [...s.history]
+      .reverse()
+      .find((e) => e.type !== "TURN_STARTED")!;
     const kind =
       s.status === "won"
         ? "victory"
         : s.status === "lost"
           ? "defeat"
-          : event.type === "mistake"
+          : action.type === "SHIP_ATTACK"
             ? "damage"
-            : event.type === "restored"
+            : action.type === "CONNECTION_SUCCESS"
               ? "success"
-              : event.type.startsWith("hint:") || event.type === "transmitted"
+              : action.type === "CLUE_SHARED"
                 ? "clue"
                 : "ready";
-    const label = (id: string) => {
-      const slot = s.circuits.find((c) => c.id === id);
-      const crew = s.circuits.filter((c) => c.owner === slot?.owner);
-      return `${slot?.owner === "nova" ? "Nova" : "Pip"}, slot ${crew.findIndex((c) => c.id === id) + 1}`;
-    };
+    const slot = (c: GameState["circuits"][number]) => ({
+      id: c.id,
+      restored: c.restored,
+      clue:
+        c.owner !== "sam" && c.value !== undefined
+          ? { min: c.value, max: c.value }
+          : undefined,
+      excluded: [
+        ...new Set(
+          s.incorrectGuesses
+            .filter((g) => g.targetCircuitId === c.id)
+            .map((g) => g.declaredNumber),
+        ),
+      ],
+      possibilities: s.possibilities[c.id],
+    });
     const messages = s.history
-      .filter((e) => e.type.startsWith("hint:") || e.type === "transmitted")
-      .map((e) => {
-        const id = e.type.slice(5);
-        const clue = s.clues.find((c) => c.slotId === id);
-        return {
-          id: String(e.index),
-          text: clue
-            ? `${label(id)}: ${clue.min === clue.max ? `my number is ${clue.min}` : `my number is between ${clue.min} and ${clue.max}`}.`
-            : "Sam shared a circuit with the crew. A crewmate will acknowledge shortly.",
-        };
-      });
+      .filter(
+        (e) =>
+          e.type === "CLUE_SHARED" ||
+          e.type === "CONNECTION_FAILED" ||
+          e.type === "CONNECTION_SUCCESS" ||
+          e.type === "PASSED",
+      )
+      .map((e) => ({ id: String(e.index), text: text(e) }));
+    const failures = s.history.filter((e) => e.type === "CONNECTION_FAILED");
     return {
       status:
         s.status === "won"
@@ -51,19 +78,26 @@ export function createEngineAdapter(
             ? "defeat"
             : "playing",
       reason: s.status === "lost" ? event.message : undefined,
-      hull: s.hull,
+      hull: Math.round((s.hull / s.maxHull) * 100),
       secondsRemaining: Math.ceil(s.remainingMs / 1000),
       elapsedSeconds: Math.floor((duration - s.remainingMs) / 1000),
       energy: s.energy,
       restored: s.restored,
       required: s.total,
+      remainingCircuits: s.remainingCircuits,
+      board: {
+        ordered: true,
+        turn: s.currentParticipant,
+        phase: s.currentParticipant === "sam" ? "selecting" : "thinking",
+        turnNumber: s.turnNumber,
+      },
       ownCircuits: s.circuits
         .filter((c) => c.owner === "sam")
+        .sort((a, b) => a.position - b.position)
         .map((c) => ({
-          id: c.id,
+          ...slot(c),
           value: c.value!,
-          restored: c.restored,
-          shared: s.clues.some((clue) => clue.slotId === c.id),
+          shared: s.publicReveals.some((r) => r.circuitId === c.id),
         })),
       rooms: (["nova", "pip"] as const).map((id) => ({
         id,
@@ -71,52 +105,79 @@ export function createEngineAdapter(
         system: id === "nova" ? "Navigation" : "Life support",
         slots: s.circuits
           .filter((c) => c.owner === id)
-          .map((c) => {
-            const clue = s.clues.find((clue) => clue.slotId === c.id);
-            return {
-              id: c.id,
-              restored: c.restored,
-              clue: clue ? { min: clue.min, max: clue.max } : undefined,
-            };
-          }),
+          .sort((a, b) => a.position - b.position)
+          .map(slot),
       })),
       messages: messages.length
         ? messages
         : [
             {
               id: "intro",
-              text: "Crew standing by. Ask for a clue, or share one of your circuits so we can help.",
+              text: "Sorted low to high. Four of each number, 1–12. A clue or connection uses your turn.",
             },
           ],
-      event: {
-        id: event.index,
-        kind,
-        text:
-          feedback ??
-          {
-            ready: "Select a number and a hidden slot to connect.",
-            success: "Connection restored. The ship feels a little brighter.",
-            damage: "Connection rejected. Hull damage detected.",
-            clue: "Emergency transmission received.",
-            victory: "All systems online. Welcome home.",
-            defeat: event.message,
-          }[kind],
-      },
+      history: s.history.map((e) => ({ id: e.index, text: text(e) })),
+      effects: s.history
+        .flatMap<NonNullable<MissionView["effects"]>[number]>((e) => {
+          if (e.type === "CONNECTION_SUCCESS")
+            return [
+              {
+                id: e.index,
+                kind: "success" as const,
+                slotIds: e.circuitIds,
+                participant: e.participant,
+              },
+            ];
+          if (e.type === "SHIP_ATTACK") {
+            const failed = failures.find((f) => f.turn === e.turn);
+            const guess = s.incorrectGuesses.find(
+              (g) =>
+                g.turn === e.turn && g.targetCircuitId === e.targetCircuitId,
+            );
+            return [
+              {
+                id: e.index,
+                kind: "damage" as const,
+                slotIds: [
+                  ...(guess ? [guess.ownCircuitId] : []),
+                  e.targetCircuitId,
+                ],
+                participant:
+                  failed?.type === "CONNECTION_FAILED"
+                    ? failed.participant
+                    : undefined,
+              },
+            ];
+          }
+          return [];
+        })
+        .slice(-60),
+      event: { id: event.index, kind, text: feedback ?? text(action) },
     };
   };
   let snapshot = map(engine.getGameState());
   const stop = () => {
     if (timer) clearInterval(timer);
     timer = undefined;
+    aiDue = Infinity;
+    scheduledTurn = -1;
   };
   const publish = () => {
-    snapshot = map(engine.getGameState());
-    if (snapshot.status !== "playing") stop();
+    const state = engine.getGameState();
+    snapshot = map(state);
+    if (state.status !== "playing") stop();
+    else if (timer && state.turnNumber !== scheduledTurn) {
+      scheduledTurn = state.turnNumber;
+      aiDue =
+        state.currentParticipant === "sam"
+          ? Infinity
+          : performance.now() + 1300;
+    }
     listeners.forEach((fn) => fn());
   };
   const syncClock = () => {
     const now = performance.now();
-    engine.advanceTime(now - last);
+    if (timer) engine.advanceTime(Math.max(0, now - last));
     last = now;
   };
   const run = (action: () => void) => {
@@ -140,7 +201,10 @@ export function createEngineAdapter(
     connect: (own, target) =>
       run(() => {
         engine.selectCircuit(own);
-        engine.attemptConnection(target);
+        const value = engine
+          .getGameState()
+          .circuits.find((c) => c.id === own)!.value!;
+        engine.attemptConnection(target, value);
       }),
     requestClue: (id) =>
       run(() => {
@@ -149,6 +213,19 @@ export function createEngineAdapter(
     shareCircuit: (id) =>
       run(() => {
         engine.shareCircuit(id);
+      }),
+    passTurn: () =>
+      run(() => {
+        engine.passTurn();
+      }),
+    resolveSolo: (id) =>
+      run(() => {
+        const own = engine
+          .getGameState()
+          .circuits.find((c) => c.id === id && c.owner === "sam");
+        if (!own || own.value === undefined)
+          throw new Error("Select your circuit first");
+        engine.resolveSolo(own.value);
       }),
     restart: () => {
       stop();
@@ -160,17 +237,25 @@ export function createEngineAdapter(
     activate: () => {
       if (timer || snapshot.status !== "playing") return;
       last = performance.now();
-      aiElapsed = 0;
+      scheduledTurn = -1;
       timer = setInterval(() => {
-        const before = last;
         syncClock();
-        aiElapsed += last - before;
-        if (engine.getGameState().status === "playing" && aiElapsed >= 2000) {
-          aiElapsed %= 2000;
-          engine.advanceAI();
+        if (
+          engine.getGameState().status === "playing" &&
+          engine.getGameState().currentParticipant !== "sam" &&
+          performance.now() >= aiDue
+        ) {
+          feedback = null;
+          try {
+            engine.advanceAI();
+          } catch (e) {
+            feedback =
+              e instanceof Error ? e.message : "Crew action unavailable";
+          }
         }
         publish();
       }, 250);
+      publish();
     },
     deactivate: () => {
       if (timer) {

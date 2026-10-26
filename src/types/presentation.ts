@@ -1,14 +1,31 @@
 /** Provisional presentation contract. Agent 1 must map its public, redacted state here. */
 export type Expression =
-  "happy" | "worried" | "thinking" | "surprised" | "celebrating";
+  "happy" | "worried" | "thinking" | "surprised" | "celebrating" | "sad";
 export type Slot = {
   id: string;
   restored: boolean;
   clue?: { min: number; max: number };
+  excluded?: number[];
+  possibilities?: number[];
 };
 export type MissionView = {
   status: "playing" | "victory" | "defeat";
   reason?: string;
+  board?: {
+    ordered: boolean;
+    turn: "sam" | "nova" | "pip" | null;
+    phase: "selecting" | "thinking" | "connecting" | null;
+    note?: string;
+    turnNumber?: number;
+  };
+  effects?: {
+    id: number;
+    kind: "success" | "damage";
+    slotIds: string[];
+    participant?: "sam" | "nova" | "pip";
+  }[];
+  history?: { id: number; text: string }[];
+  remainingCircuits?: number;
   hull: number;
   secondsRemaining: number;
   elapsedSeconds: number;
@@ -29,6 +46,8 @@ export interface MissionAdapter {
   subscribe: (listener: () => void) => () => void;
   connect: (ownId: string, targetId: string) => void;
   requestClue: (targetId: string) => void;
+  passTurn: () => void;
+  resolveSolo: (ownId: string) => void;
   shareCircuit: (ownId: string) => void;
   activate: () => void;
   deactivate: () => void;

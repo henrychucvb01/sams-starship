@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { CircuitBoard } from "../components/CircuitBoard";
 import { Ship, Sam } from "../components/Ship";
 import { createEngineAdapter } from "../adapters/engineAdapter";
 import type { MissionAdapter } from "../types/presentation";
@@ -67,8 +68,6 @@ export function App({
   );
   const [overlay, setOverlay] = useState<"settings" | "help" | null>(null);
   const [reduced, setReduced] = usePreference("starship-reduced-motion");
-  const [own, setOwn] = useState("");
-  const [target, setTarget] = useState("");
   const [difficulty, setDifficulty] = useState("Easy");
   const heading = useRef<HTMLHeadingElement>(null);
   const modal = useRef<HTMLDialogElement>(null);
@@ -94,8 +93,6 @@ export function App({
     }
   }, [overlay]);
   function start() {
-    setOwn("");
-    setTarget("");
     adapter.restart();
     adapter.activate();
     setScreen("game");
@@ -103,19 +100,15 @@ export function App({
   function menu() {
     setScreen("menu");
   }
+  const [resultVisible, setResultVisible] = useState(false);
   useEffect(() => {
-    if (own && state.ownCircuits.find((c) => c.id === own)?.restored)
-      setOwn("");
-    if (
-      target &&
-      state.rooms.flatMap((r) => r.slots).find((c) => c.id === target)?.restored
-    )
-      setTarget("");
-  }, [state, own, target]);
-  const targetSlot = state.rooms
-    .flatMap((r) => r.slots)
-    .find((s) => s.id === target);
-  const ended = screen === "game" && state.status !== "playing";
+    setResultVisible(false);
+    if (state.status === "playing") return;
+    const timer = setTimeout(() => setResultVisible(true), 1100);
+    return () => clearTimeout(timer);
+  }, [state.status]);
+  const ended =
+    screen === "game" && state.status !== "playing" && resultVisible;
   return (
     <div className={`app ${reduced ? "reduce-motion" : ""}`}>
       <div className="stars" aria-hidden="true" />
@@ -290,239 +283,12 @@ export function App({
           </section>
         )}
         {screen === "game" && !ended && (
-          <section
-            className={`page game-page event-${state.event.kind}`}
-            key="game"
-          >
-            <div className="game-heading">
-              <div>
-                <div className="eyebrow">
-                  MISSION 01 · EASY · MATCHING NUMBERS
-                </div>
-                <h1 ref={heading} tabIndex={-1}>
-                  Restore the Lights <span>✧</span>
-                </h1>
-                <p className="muted">
-                  Reconnect the circuits. Bring everyone home.
-                </p>
-              </div>
-              <button
-                className="secondary compact"
-                onClick={() => setScreen("missions")}
-              >
-                Leave mission
-              </button>
-            </div>
-
-            <div className="status-strip">
-              <div>
-                <span>HULL INTEGRITY</span>
-                <strong className={state.hull <= 20 ? "danger" : ""}>
-                  {state.hull}% {state.hull <= 20 ? "⚠" : ""}
-                </strong>
-                <meter
-                  min="0"
-                  max="100"
-                  value={state.hull}
-                  aria-label="Hull integrity"
-                />
-              </div>
-              <div>
-                <span>MISSION CLOCK</span>
-                <strong>{time(state.secondsRemaining)}</strong>
-                <small>time remaining</small>
-              </div>
-              <div>
-                <span>RESTORED</span>
-                <strong>
-                  {state.restored}
-                  <small> / {state.required}</small>
-                </strong>
-                <small>circuit pairs</small>
-              </div>
-              <div>
-                <span>HINT ENERGY</span>
-                <strong>
-                  {state.energy} <small>units</small>
-                </strong>
-                <small>emergency reserve</small>
-              </div>
-            </div>
-            <div className="game-grid">
-              <div className="game-left">
-                <div className="ship-panel">
-                  <span className="panel-kicker">
-                    SS BUTTER · SYSTEM OVERVIEW
-                  </span>
-                  <Ship restored={state.restored} damaged={state.hull < 100} />
-                  <div className="system-pills">
-                    <span>✓ Sam's terminal</span>
-                    <span>
-                      {state.restored === state.required
-                        ? "✓ Online"
-                        : "! Circuits offline"}
-                    </span>
-                  </div>
-                </div>
-                <section className="terminal">
-                  <div className="section-heading">
-                    <div>
-                      <span className="eyebrow">EMERGENCY CHANNEL</span>
-                      <h2>A little help from the crew</h2>
-                    </div>
-                    <span className="energy-tag">ϟ {state.energy}</span>
-                  </div>
-                  <div
-                    className="message-list"
-                    role="log"
-                    aria-label="Crew transmissions"
-                  >
-                    {state.messages.map((m) => (
-                      <p key={m.id}>
-                        <span>CREW TRANSMISSION</span>
-                        {m.text}
-                      </p>
-                    ))}
-                  </div>
-                  <button
-                    className="secondary"
-                    disabled={
-                      !target ||
-                      state.energy <= 0 ||
-                      targetSlot?.restored ||
-                      (targetSlot?.clue?.min === targetSlot?.clue?.max &&
-                        !!targetSlot?.clue)
-                    }
-                    onClick={() => adapter.requestClue(target)}
-                  >
-                    Request clue{" "}
-                    {state.energy <= 0 ? "· No energy" : "· 1 energy"}
-                  </button>
-                  <button
-                    className="secondary share-button"
-                    disabled={
-                      !own ||
-                      state.energy <= 0 ||
-                      state.ownCircuits.find((c) => c.id === own)?.shared
-                    }
-                    onClick={() => adapter.shareCircuit(own)}
-                  >
-                    Share selected Sam circuit · 1 energy
-                  </button>
-                  <small className="muted">
-                    {target
-                      ? "A bounded clue about your selected hidden slot."
-                      : "Select a hidden circuit to request a clue."}
-                  </small>
-                </section>
-              </div>
-              <section className="circuit-panel">
-                <div className="section-heading">
-                  <div>
-                    <span className="eyebrow">CIRCUIT WORKBENCH</span>
-                    <h2>Make a connection</h2>
-                  </div>
-                  <span className="number-badge">01</span>
-                </div>
-                <p className="muted">
-                  Select one of your numbers, then a hidden crew circuit.
-                </p>
-                <div className="circuit-label">
-                  <span>1</span>
-                  <h3>Sam's circuits</h3>
-                  <small>YOUR NUMBERS</small>
-                </div>
-                <div className="circuit-row own-row">
-                  {state.ownCircuits.map((s) => (
-                    <button
-                      key={s.id}
-                      className={`circuit ${own === s.id ? "selected" : ""} ${s.restored ? "restored" : ""}`}
-                      disabled={s.restored}
-                      aria-pressed={own === s.id}
-                      aria-label={`Sam circuit ${s.value}${s.restored ? ", restored" : ""}`}
-                      onClick={() => setOwn(s.id)}
-                    >
-                      <strong>{s.value}</strong>
-                      <small>
-                        {s.restored
-                          ? "✓ DONE"
-                          : own === s.id
-                            ? "SELECTED"
-                            : "SELECT"}
-                      </small>
-                    </button>
-                  ))}
-                </div>
-                <div className="connection-divider">
-                  <span />⌁<span />
-                </div>
-                <div className="circuit-label">
-                  <span>2</span>
-                  <h3>Crew circuits</h3>
-                  <small>HIDDEN SIGNALS</small>
-                </div>
-                {state.rooms.map((room) => (
-                  <div className="crew-row" key={room.id}>
-                    <div className="crew-label">
-                      <span className="crew-avatar">⌘</span>
-                      <strong>
-                        {room.name}
-                        <small>{room.system}</small>
-                      </strong>
-                    </div>
-                    <div className="circuit-row">
-                      {room.slots.map((s, i) => (
-                        <button
-                          key={s.id}
-                          className={`circuit hidden ${target === s.id ? "selected" : ""} ${s.restored ? "restored" : ""}`}
-                          aria-label={`${room.name}, slot ${i + 1}${s.restored ? ", restored" : s.clue ? `, clue ${s.clue.min === s.clue.max ? s.clue.min : `${s.clue.min} to ${s.clue.max}`}` : ", hidden"}`}
-                          aria-pressed={target === s.id}
-                          disabled={s.restored}
-                          onClick={() => setTarget(s.id)}
-                        >
-                          <strong>
-                            {s.restored
-                              ? "✓"
-                              : s.clue?.min === s.clue?.max && s.clue
-                                ? s.clue.min
-                                : "?"}
-                          </strong>
-                          <small>
-                            {target === s.id ? "SELECTED" : `SLOT ${i + 1}`}
-                          </small>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-                <div className="connection-action">
-                  <p>
-                    {own && target
-                      ? "Two circuits selected. Ready to connect."
-                      : "Choose a number + a hidden slot."}
-                  </p>
-                  <button
-                    className="primary"
-                    disabled={!own || !target}
-                    onClick={() => {
-                      adapter.connect(own, target);
-                      setOwn("");
-                      setTarget("");
-                    }}
-                  >
-                    Connect circuits <span>ϟ</span>
-                  </button>
-                </div>
-                <div
-                  className="event-message"
-                  key={state.event.id}
-                  role="status"
-                >
-                  {state.event.kind === "damage" ? "⚠" : "✧"} {state.event.text}
-                </div>
-              </section>
-            </div>
-          </section>
+          <CircuitBoard
+            state={state}
+            adapter={adapter}
+            onLeave={() => setScreen("missions")}
+            headingRef={heading}
+          />
         )}
         {ended && (
           <section className={`page result-screen event-${state.status}`}>
@@ -532,9 +298,7 @@ export function App({
                 : "EMERGENCY TRANSMISSION · SIGNAL LOST"}
             </div>
             <Sam
-              expression={
-                state.status === "victory" ? "celebrating" : "worried"
-              }
+              expression={state.status === "victory" ? "celebrating" : "sad"}
             />
             <h1 ref={heading} tabIndex={-1}>
               {state.status === "victory"
@@ -636,24 +400,34 @@ export function App({
           ) : (
             <>
               <ol className="instructions">
-                <li>Examine Sam's numbered circuits.</li>
                 <li>
-                  Select a hidden crew slot. Spend limited hint energy to narrow
-                  down its number.
+                  There are four copies of each number, 1–12. Every rack runs
+                  from low to high, and cleared slots stay in position.
                 </li>
                 <li>
-                  Select one of Sam's circuits, then connect matching numbers.
+                  On Sam’s turn, select one of his numbers and a crew tile.
+                  Review the prefilled declaration, then press Connect. You can
+                  cancel or change your selection first.
                 </li>
                 <li>
-                  Wrong connections damage the ship. Hidden numbers stay hidden.
+                  A correct connection clears both tiles. A wrong declaration
+                  reveals the target and triggers an enemy attack that damages
+                  the shared ship.
                 </li>
                 <li>
-                  Share a selected Sam circuit with the crew to let an AI
-                  crewmate make a safe connection. This also costs one energy.
+                  Ask for one public number or share one of Sam’s numbers for
+                  one energy. Either action uses your turn. Nova and Pip then
+                  take their own turns.
                 </li>
                 <li>
-                  Restore all required pairs before the clock or hull runs out.
-                  Correct connections replenish energy.
+                  Review public deductions on a tile’s tooltip and previous
+                  mistakes in the deduction log. Pass if needed. Solo resolution
+                  works only when Sam holds every remaining copy of the selected
+                  number.
+                </li>
+                <li>
+                  Restore all 48 circuits before time or hull runs out. Correct
+                  connections replenish communication energy.
                 </li>
               </ol>
               <p className="muted">

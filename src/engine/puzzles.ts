@@ -1,11 +1,10 @@
 import type { Circuit, Difficulty } from './types';
 export function random(seed: number): () => number { let s = seed >>> 0; return () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; }; }
-export function generateMatching(pairs: number, seed: number): Circuit[] {
- const rng = random(seed); const values = Array.from({ length: 99 }, (_, i) => i + 1);
- for (let i = values.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [values[i], values[j]] = [values[j], values[i]]; }
- const hidden = values.slice(0, pairs).sort((a,b) => a-b);
- for (let i = hidden.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i+1)); [hidden[i],hidden[j]]=[hidden[j],hidden[i]]; }
- return [...values.slice(0,pairs).map((value,i): Circuit => ({id:`sam-${i}`,owner:'sam',value,restored:false})), ...hidden.map((value,i): Circuit => ({id:`crew-${i}`,owner:i%2?'pip':'nova',value,restored:false}))];
+/** Complete multiset shuffled, dealt round-robin, then sorted per room. */
+export function generateMatching(min: number, max: number, copies: number, seed: number): Circuit[] {
+ const rng=random(seed), deck=Array.from({length:(max-min+1)*copies},(_,i)=>min+Math.floor(i/copies));
+ for(let i=deck.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[deck[i],deck[j]]=[deck[j],deck[i]];}
+ return (['sam','nova','pip'] as const).flatMap((owner,room)=>deck.filter((_,i)=>i%3===room).sort((a,b)=>a-b).map((value,position)=>({id:`${owner}-${position}`,owner,position,value,restored:false})));
 }
 export interface SequencePuzzle { id: string; terms: (number | null)[]; answer: number; clue: string; restored: boolean }
 export function generateSequences(count: number, length: number, difficulty: Difficulty, seed: number): SequencePuzzle[] {
