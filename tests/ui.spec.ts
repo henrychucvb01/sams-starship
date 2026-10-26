@@ -226,6 +226,8 @@ test("production navigation, persisted preferences, off-turn controls, timeout a
   ).toBeDisabled();
   await expect(page.getByRole("button", { name: /Sam’s Hint/ })).toBeDisabled();
   await page.clock.runFor(300000);
+  // Flush the terminal React render before advancing its result-screen delay.
+  await expect(page.getByText("0:00", { exact: true })).toBeVisible();
   await page.clock.runFor(1200);
   await expect(
     page.getByRole("heading", { name: /Mission Failed/ }),
@@ -416,3 +418,4 @@ test("later-mission scanner and dual scanner target controls use real tool outco
   await page.clock.runFor(700);
   await expect(page.locator(".connection-arc")).toBeVisible();
 });
+

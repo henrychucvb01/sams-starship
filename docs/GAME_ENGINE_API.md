@@ -98,3 +98,31 @@ Every tool call REQUIRES the `toolToken` from the rendered state. Capture it in 
 SupportEvent extends the existing GameEvent union with SELF_MATCH_SUCCESS / SELF_MATCH_INVALID, SCANNER_ACTIVATED, DUAL_SCANNER_SUCCESS / DUAL_SCANNER_FAILED, SHIELD_ACTIVATED / SHIELD_PREVENTED and HINT_GENERATED. Each has participant, circuitIds, index, turn and message; number, scanner, possibilities and damagePrevented are present as applicable. Self-Match also emits the existing CONNECTION_SUCCESS for compatibility; animate it once rather than twice. Shield prevention still emits SHIP_ATTACK with actual damage 0 and unchanged hull; animate shield interception using SHIELD_PREVENTED. A failed dual scan emits one attack, never two. Invalid Self-Match changes history only.
 
 Agent 2: add a Self-Match selection mode for two own tiles; use selfMatches explanations to explain unavailable matches. Add tool buttons/threshold input/two-target mode, and consume these events using the existing cursor. No UI/adapter files are changed by this engine update. Existing exact requestHint calls need replacement and token handling. Sequence missions still remain unavailable.
+
+
+# Number Board and special circuits
+
+`getGameState().numberTracker` is always returned by the engine. It contains one row per configured blue number: `{number,totalCopies,resolvedCopies,remainingCopies,completed}`. Standard rows remain visible after reaching four resolved copies. The tracker counts only resolved BLUE tiles, is recomputed from the private board after every command, and is detached from engine state. UI must render this snapshot and must not maintain authoritative counters. A two-tile connection adds two copies; a four-tile Self-Match adds four. `NUMBER_COMPLETED` fires only on the transition to completion.
+
+`Circuit.kind` is `blue | yellow | red` for own or publicly revealed circuits. Hidden other-room slots omit BOTH value and kind. `value` is the numeric SORT KEY, not necessarily the matching category: yellow keys can be fractional and all yellow tiles match each other. A yellow command declares the selected tile's own sort key for compatibility with the existing numeric API. For yellow Self-Match, choose two yellow tiles; all remaining yellow copies must be owned, regardless of differing sort keys. Blue and yellow never match each other. Red is never an ordinary matching source. Do not show yellow/red colors for a hidden slot based on its ID, row length, candidate list or seed.
+
+Mission `specials` holds yellowPositions/redPositions (one numeric sort key per configured copy), redInstantFailure, redSafeRule and showCandidates. All copies are added BEFORE shuffle/deal/sort; IDs are position-based and carry no special markers. Missions `circuit-1` through `circuit-9` demonstrate progression: 1–3 blue only, 4–6 add four yellow keys, 7–9 add two red keys. All remain development entries pending special-circuit UI; `lights` stays unchanged and blue-only. Existing sequence placeholders remain unavailable. Special inventories are additive to configured blue inventory; tool/range overrides remain supported if all configured special keys lie within that range.
+
+`specialTracker` includes yellow/red totals, public resolved counts and completion, plus `candidates: [{sortValue, certainty:'possible'}]` only if showCandidates allows it. These are mission-defined possible numeric positions, never assignments to hidden circuit IDs. They remain uncertain until revealed. `confirmed` lists only own or publicly revealed special IDs/keys with resolved flags. Resolved counts update automatically. Zero-copy categories have completed=true; hide their indicators when totalCopies=0.
+
+When enabled, targeting a red through ordinary matching immediately loses the mission, even with a shield. No tiles resolve. Red is revealed and RED_TRIGGERED / LOST / MISSION_FAILED are emitted. Hull may remain above zero: mission status and failure reason are authoritative. Dual Scanner also triggers red failure if either tested tile is red, even if the other matches. If redInstantFailure=false, an ordinary red target is a wrong connection with normal damage/reveal rules, never a match. Shields still apply to normal penalties.
+
+`resolveRedSafely(ownRedId)` implements the initial mission-specific safe rule: after-other-circuits. All blue/yellow must already be resolved; the actor may then isolate one OWN red tile, ending its turn. A red tile cannot be remotely probed with this command. Disabled rules reject without changing turn or progress. AI uses public resolved inventory counts and its own red identity for the same action. Each red tile contributes 0.5 pair-equivalents to the legacy restored counter; total stays tile-count/2. Prefer numberTracker/specialTracker/remainingCircuits for new progress display.
+
+AI on special missions deliberately uses only confirmed matching categories for cross-room moves; it does not equate numeric sort keys with category identities or apply the blue four-copy count to yellow/red keys. Its Hint domains include every mission-permitted special sort key and use only own/public anchors and scanner results. This conservative strategy may pass until more information is shared. Existing blue-only deduction behavior remains unchanged.
+
+New CircuitEvent records have index, turn, message, circuitIds and optional kind/number/counts/hull/reason:
+- CIRCUIT_PAIR_RESOLVED: authoritative successful pair/Self-Match application (legacy CONNECTION_SUCCESS remains).
+- SELF_MATCH_COMPLETED: validated self resolution; legacy SELF_MATCH_SUCCESS remains.
+- NUMBER_COMPLETED: number, resolvedCopies, totalCopies.
+- YELLOW_RESOLVED: IDs and updated yellow counts.
+- RED_TRIGGERED / RED_SAFELY_RESOLVED: target IDs and rule result.
+- SHIP_DAMAGED: actual damage and hullBefore/hullAfter; legacy SHIP_ATTACK remains.
+- MISSION_COMPLETED / MISSION_FAILED: terminal outcome; failure reason hull, timeout or red.
+
+These are alternative integration signals describing the SAME outcomes as legacy events. Do not animate/count duplicate aliases twice. A robot-mouse animation can consume result IDs/category and defer visual progression, but must never decide matches, apply damage, or modify tracker progress. No character artwork or animation logic is included.
