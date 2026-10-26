@@ -2337,3 +2337,295 @@ dialog::backdrop {
     right: 12px;
   }
 }
+.toolkit {
+  margin-top: 18px;
+  border-top: 1px solid var(--line);
+  padding: 16px 0;
+}
+.toolkit summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  cursor: pointer;
+  min-height: 30px;
+  font-family: "Space Grotesk", system-ui, sans-serif;
+  font-weight: 700;
+}
+.toolkit summary small {
+  font-family: system-ui, sans-serif;
+  font-size: 0.45rem;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  align-self: center;
+}
+.tool-grid {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+.tool-card {
+  min-height: 70px;
+  padding: 11px 10px;
+  border: 1px solid #ffffff20;
+  border-radius: 12px;
+  background: #252e46;
+  color: #f3eacb;
+  text-align: left;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.tool-card strong {
+  font-size: 0.75rem;
+  display: block;
+}
+.tool-card small {
+  font-size: 0.57rem;
+  color: #b8cbd6;
+  display: block;
+  margin-top: 4px;
+}
+.tool-description {
+  display: block;
+  font-size: 0.6rem;
+  line-height: 1.5;
+  color: #c2cad4;
+  margin-top: 5px;
+}
+.tool-icon {
+  font-size: 1.4rem;
+  color: var(--mint);
+  min-width: 23px;
+  text-align: center;
+}
+.tool-card.tool-selected {
+  border: 2px solid var(--cream);
+  background: #414b53;
+}
+.tool-card:disabled {
+  opacity: 0.5;
+}
+.tool-target {
+  outline: 1px dashed #9fe8d177;
+  outline-offset: 3px;
+}
+.tool-confirmation {
+  position: sticky;
+  bottom: 12px;
+  z-index: 6;
+  background: #d5e6df;
+  color: #26334a;
+  border-radius: 16px;
+  padding: 17px;
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  flex-wrap: wrap;
+  box-shadow: 0 10px 45px #070f2866;
+}
+.tool-confirmation .eyebrow {
+  color: #36574d;
+  flex-basis: 100%;
+}
+.tool-confirmation p {
+  font-size: 0.8rem;
+  line-height: 1.6;
+  flex: 1;
+  min-width: 150px;
+}
+.tool-confirmation label {
+  font-size: 0.7rem;
+}
+.tool-confirmation input {
+  width: 70px;
+  display: block;
+  font-size: 1rem;
+  border: 1px solid #8aaca3;
+  background: #f1f9f5;
+  border-radius: 7px;
+  padding: 8px;
+  margin-top: 6px;
+}
+.tool-confirmation .text-button {
+  font-size: 0.75rem;
+  padding: 12px;
+}
+.tool-confirmation .primary {
+  font-size: 0.8rem;
+  padding: 10px 16px;
+  min-height: 44px;
+}
+.sam-clue {
+  padding: 14px 17px;
+  background: #b9eed918;
+  border-left: 2px solid var(--mint);
+  color: #d4f4df;
+  font-size: 0.8rem;
+  line-height: 1.7;
+  margin: 15px 0;
+  border-radius: 8px;
+}
+.self-explainer {
+  display: block;
+  font-size: 0.64rem;
+  color: #576050;
+  line-height: 1.6;
+  margin-top: 4px;
+}
+.scanner-beam {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 5px;
+  background: #a4f9ee;
+  box-shadow: 0 0 15px #b9ffef;
+  animation: scan-tile 0.7s ease-in-out;
+}
+.wire-dual,
+.wire-scan {
+  animation: tile-success 0.7s;
+}
+.energy-shield {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  top: 16%;
+  bottom: 10%;
+  border: 2px solid #a2f2f0;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, transparent 45%, #a2f2f029 80%);
+  box-shadow:
+    0 0 15px #a2f2f033,
+    inset 0 0 20px #a2f2f022;
+  pointer-events: none;
+  z-index: 3;
+}
+.shield-impact {
+  animation: shield-flash 0.8s;
+}
+.blocked-projectile {
+  position: absolute;
+  right: -30%;
+  top: 3%;
+  width: 65px;
+  height: 7px;
+  border-radius: 100%;
+  background: linear-gradient(90deg, #fff4bf, #ffa6b9, transparent);
+  box-shadow: 0 0 14px #fbc9ac;
+  animation: shield-projectile 0.5s ease-in forwards;
+  z-index: 4;
+}
+.sam-clue {
+  animation: arrive 0.4s;
+}
+@keyframes scan-tile {
+  to {
+    top: 95%;
+    opacity: 0;
+  }
+}
+@keyframes shield-flash {
+  40% {
+    background: #c9ffff66;
+    box-shadow: 0 0 30px #beffff;
+    border-width: 5px;
+  }
+  to {
+    opacity: 0.7;
+  }
+}
+@keyframes shield-projectile {
+  70% {
+    right: 20%;
+    top: 24%;
+    opacity: 1;
+  }
+  to {
+    right: 20%;
+    top: 24%;
+    opacity: 0;
+  }
+}
+@media (max-width: 720px) {
+  .toolkit {
+    order: 3;
+    width: 100%;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 15px;
+    margin-top: 10px;
+  }
+  .toolkit summary {
+    min-height: 30px;
+  }
+  .tool-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .tool-card {
+    min-height: 110px;
+    padding: 12px 10px;
+    gap: 6px;
+  }
+  .tool-card strong {
+    font-size: 0.7rem;
+  }
+  .tool-icon {
+    font-size: 1.1rem;
+    min-width: 17px;
+  }
+  .toolkit:not([open]) .tool-grid {
+    display: none;
+  }
+  .mini-terminal {
+    order: 4;
+  }
+  .tool-confirmation {
+    bottom: 10px;
+    padding: 14px;
+  }
+  .tool-confirmation p {
+    flex-basis: 100%;
+  }
+  .tool-confirmation .primary {
+    flex: 1;
+  }
+  .energy-shield {
+    left: auto;
+    right: 6%;
+    width: 145px;
+    top: 8px;
+    bottom: 8px;
+  }
+  .blocked-projectile {
+    top: -15%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .scanner-beam,
+  .blocked-projectile {
+    display: none;
+  }
+}
+.reduce-motion .scanner-beam,
+.reduce-motion .blocked-projectile {
+  display: none;
+}
+.scanner-result {
+  position: absolute;
+  top: 8px;
+  left: 2px;
+  right: 2px;
+  font-size: 0.45rem;
+  line-height: 1.25;
+  color: #c6f6e6;
+  text-align: center;
+  background: #1f443c;
+}
+.toolkit summary::after {
+  content: "⌄";
+  color: #b9eed9;
+}
+.toolkit:not([open]) summary::after {
+  content: "+";
+}

@@ -1,6 +1,6 @@
 # Circuit-board-first UI and revised engine integration
 
-Branch `agent/game-ui`, PR #2 → `feature/first-playable-prototype`. No merge into main or production deployment. This update incorporates Agent 1's revised engine commit `b878d81`; all engine modules are unchanged from that commit.
+Branch `agent/game-ui`, PR #2 → `feature/first-playable-prototype`. Main merge and production deployment are authorized for completed, tested work. This update incorporates Agent 1's revised engine commit `6c82ee5`; all engine modules are unchanged from that commit.
 
 ## Player experience
 
@@ -14,7 +14,7 @@ Select one Sam tile and one crew tile to open a declaration panel. The selected 
 
 - Racks map public `circuits`, sorted by engine `position`. AI values appear only when `getGameState()` explicitly includes them following a clue, mistake or resolution.
 - `currentParticipant` and `turnNumber` drive turn labels and disabled controls. Thinking labels are presentation during the scheduled AI pause; the UI never decides whose turn comes next.
-- Public `possibilities` populate tile tooltips for deduction; they are conservative engine deductions, not a private answer board.
+- Unlimited deduction tooltips are removed. Production does not render possibilities or exact-answer hint buttons. Sam’s Hint is an explicitly charged, engine-generated deduction.
 - `incorrectGuesses` persist on target tiles as excluded declarations. Public mistake numbers and all clue/connection records remain reviewable in the expandable deduction log.
 - Status ribbon, communication panel, ship condition and results consume adapter snapshots. Progress is in pair-equivalents; Remaining counts individual circuits.
 
@@ -44,3 +44,18 @@ Production uses the revised real engine, with no mock fallback or compatibility 
 - `npx playwright install chromium`, `npm run test:ui`: desktop and iPhone-size touch layouts
 
 Browser tests solve the real 48-tile standard mission using only public rendered deductions/clues; verify victory, fatal mistake/reveal/attack, timer defeat and restart; check real AI turns, action disabling, no document overflow, fixed rack order, settings and unavailable features. Isolated visual fixtures additionally exercise keyboard selection, read-only declaration, cancel, duplicate-click prevention, SVG feedback, public reveal persistence and reduced motion.
+
+
+## Self-Match and Sam’s Toolkit
+
+Select two distinct equal Sam tiles to open Connect Pair. The adapter invokes `selfMatch(firstId,secondId)`; `selfMatches` supplies eligibility/explanations. No eligibility or remaining-copy rule is recalculated in UI. Four-copy successes draw arcs across all four affected stable anchors; CONNECTION_SUCCESS is animated once, not again for SELF_MATCH_SUCCESS. Invalid attempts display the engine explanation without damage or a spent turn.
+
+Easy tools are configured in the engine constructor: scanner and dualScanner unlocked=false; shield and hint retain one use each. The panel renders engine availability, charges and validTargetIds. Both later-mission scanners are implemented and tested through engine-enabled test configuration, but remain locked in the first mission. Scanner accepts one hidden target and a threshold; Dual Scanner accepts two distinct engine-valid targets and a selected Sam tile. Scanner comparisons persist on the tile/log. Dual success resolves only the engine-chosen pair and leaves the unchosen circuit secret.
+
+The confirmation click captures toolToken from the rendered snapshot and passes it unchanged. The adapter never refreshes the token for a queued duplicate request. Engine tokens reject repeated charges; UI clears selection on submission and disables inappropriate tool controls. Charges do not replenish from connections; restart restores the configured tools.
+
+SCANNER_ACTIVATED drives a beam. DUAL_SCANNER_SUCCESS/FAILED drives a two-target scan followed by the normal engine outcome. SHIELD_ACTIVATED surrounds the ship with energy; SHIELD_PREVENTED drives interception and suppresses the associated zero-damage SHIP_ATTACK animation. Hull remains engine-owned. HINT_GENERATED drives a thinking reaction and persistent limited clue panel. All public tool messages remain in history.
+
+Browser coverage uses the real engine for four-copy Self-Match, invalid eligibility, finite hints, Easy scanner locks, shield interception, and later scanner/dual interactions. Engine tests cover two remaining copies, AI Self-Match, shield exhaustion and token idempotency. The browser full-mission test driver reasons from rendered public board information; no unlimited deduction assistance is shipped in the UI.
+
+To verify an external deployment on desktop and mobile: `STARSHIP_TEST_BASE_URL=https://starship.slbutter.com npm run test:ui`. This selects tests/deployed.spec.ts and skips the local development server. Production uses neither fixed-seed realHarness nor scripted boardHarness: both are excluded from the built SPA.

@@ -3,6 +3,7 @@ import type { AIAction, AIObservation } from './types';
 export function deduce(view: AIObservation): Record<string, number[]> {
  const domains: Record<string,number[]>={};
  for(const c of view.circuits){const known=c.value??view.reveals.find(r=>r.circuitId===c.id)?.value;domains[c.id]=known===undefined?Array.from({length:view.max-view.min+1},(_,i)=>view.min+i).filter(n=>!view.incorrectGuesses.some(g=>g.targetCircuitId===c.id&&g.declaredNumber===n)):[known];}
+ for(const result of view.scannerResults??[]) domains[result.circuitId]=domains[result.circuitId].filter(n=>result.relation==='below'?n<result.threshold:result.relation==='above'?n>result.threshold:n===result.threshold);
  for(let pass=0;pass<view.deductionPasses;pass++){
  const before=JSON.stringify(domains);
  for(const owner of ['sam','nova','pip']){const row=view.circuits.filter(c=>c.owner===owner).sort((a,b)=>a.position-b.position);for(let i=1;i<row.length;i++){const a=domains[row[i-1].id], b=domains[row[i].id];domains[row[i].id]=b.filter(n=>n>=Math.min(...a));}for(let i=row.length-2;i>=0;i--){const b=domains[row[i+1].id];domains[row[i].id]=domains[row[i].id].filter(n=>n<=Math.max(...b));}}

@@ -1,3 +1,18 @@
+export type ToolId = "scanner" | "dual-scanner" | "shield" | "hint";
+export type ToolView = {
+  id: ToolId;
+  name: string;
+  remaining: number;
+  available: boolean;
+  reason?: string;
+  targetIds?: string[];
+};
+export type ToolCommand = {
+  targets: string[];
+  token: string;
+  ownId?: string;
+  threshold?: number;
+};
 /** Provisional presentation contract. Agent 1 must map its public, redacted state here. */
 export type Expression =
   "happy" | "worried" | "thinking" | "surprised" | "celebrating" | "sad";
@@ -7,8 +22,19 @@ export type Slot = {
   clue?: { min: number; max: number };
   excluded?: number[];
   possibilities?: number[];
+  scans?: { threshold: number; relation: string }[];
 };
 export type MissionView = {
+  tools?: ToolView[];
+  toolToken?: string;
+  selfMatches?: {
+    number: number;
+    eligible: boolean;
+    circuitIds: string[];
+    explanation: string;
+  }[];
+  shieldActive?: boolean;
+  toolClue?: string;
   status: "playing" | "victory" | "defeat";
   reason?: string;
   board?: {
@@ -20,7 +46,8 @@ export type MissionView = {
   };
   effects?: {
     id: number;
-    kind: "success" | "damage";
+    kind:
+      "success" | "damage" | "scan" | "dual" | "shield" | "blocked" | "hint";
     slotIds: string[];
     participant?: "sam" | "nova" | "pip";
   }[];
@@ -46,6 +73,8 @@ export interface MissionAdapter {
   subscribe: (listener: () => void) => () => void;
   connect: (ownId: string, targetId: string) => void;
   requestClue: (targetId: string) => void;
+  selfMatch?: (ids: string[]) => void;
+  useTool?: (id: ToolId, command: ToolCommand) => void;
   passTurn: () => void;
   resolveSolo: (ownId: string) => void;
   shareCircuit: (ownId: string) => void;

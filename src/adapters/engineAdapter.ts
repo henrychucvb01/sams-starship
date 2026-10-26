@@ -1,12 +1,17 @@
 import { GameEngine } from "../engine";
-import type { GameState, Tuning } from "../engine";
+import type { GameState, Tuning, ToolSettings } from "../engine";
 import type { MissionAdapter, MissionView } from "../types/presentation";
 /** The engine's redacted public state is the only source of board information. */
 export function createEngineAdapter(
   seed = crypto.getRandomValues(new Uint32Array(1))[0],
   tuning: Partial<Tuning> = {},
+  toolSettings: Partial<ToolSettings> = {},
 ): MissionAdapter {
-  const engine = new GameEngine("lights", "easy", seed, tuning);
+  const engine = new GameEngine("lights", "easy", seed, tuning, {
+    scanner: { uses: 1, unlocked: false },
+    dualScanner: { uses: 1, unlocked: false },
+    ...toolSettings,
+  });
   const listeners = new Set<() => void>();
   let duration = engine.getGameState().remainingMs;
   let timer: ReturnType<typeof setInterval> | undefined;
@@ -24,6 +29,8 @@ export function createEngineAdapter(
         return `${e.participant}: declared ${e.declaredNumber} at ${label(e.targetCircuitId)}. Incorrect; publicly revealed ${e.revealedNumber}.`;
       if (e.type === "CONNECTION_SUCCESS")
         return `${e.participant}: restored ${e.circuitIds.length} circuits with number ${e.number}.`;
+      if (e.type === "SCANNER_ACTIVATED")
+        return `${label(e.circuitIds[0])}: ${e.message}`;
       if (e.type === "CLUE_SHARED")
         return `${label(e.circuitId)}: my number is ${e.value}.`;
       return e.message;
@@ -58,7 +65,10 @@ export function createEngineAdapter(
             .map((g) => g.declaredNumber),
         ),
       ],
-      possibilities: s.possibilities[c.id],
+      possibilities: undefined,
+      scans: s.scannerResults
+        .filter((r) => r.circuitId === c.id)
+        .map(({ threshold, relation }) => ({ threshold, relation })),
     });
     const messages = s.history
       .filter(
@@ -66,11 +76,47 @@ export function createEngineAdapter(
           e.type === "CLUE_SHARED" ||
           e.type === "CONNECTION_FAILED" ||
           e.type === "CONNECTION_SUCCESS" ||
-          e.type === "PASSED",
+          e.type === "PASSED" ||
+          e.type === "HINT_GENERATED" ||
+          e.type === "SCANNER_ACTIVATED" ||
+          e.type === "SHIELD_PREVENTED",
       )
       .map((e) => ({ id: String(e.index), text: text(e) }));
     const failures = s.history.filter((e) => e.type === "CONNECTION_FAILED");
+    const toolNames = {
+      scanner: "Circuit Scanner",
+      dualScanner: "Dual Scanner",
+      shield: "Emergency Shield",
+      hint: "Sam’s Hint",
+    };
+    const hint = s.history.filter((e) => e.type === "HINT_GENERATED").at(-1);
     return {
+      tools: (["scanner", "dualScanner", "shield", "hint"] as const).map(
+        (id) => ({
+          id: id === "dualScanner" ? "dual-scanner" : id,
+          name: toolNames[id],
+          remaining: s.tools[id].uses,
+          available: s.tools[id].available,
+          targetIds: s.tools[id].validTargetIds,
+          reason: !s.tools[id].unlocked
+            ? "Locked until a later mission"
+            : s.tools[id].uses <= 0
+              ? "Exhausted"
+              : id === "shield" && s.shieldActive
+                ? "Shield already active"
+                : undefined,
+        }),
+      ),
+      toolToken: s.toolToken,
+      shieldActive: s.shieldActive,
+      selfMatches: s.selfMatches,
+      toolClue: hint
+        ? hint.message.replace(
+            /(sam|nova|pip)-(\d+)/g,
+            (_m, owner, index) =>
+              `${owner === "nova" ? "Nova" : owner === "pip" ? "Pip" : "Sam"}, slot ${Number(index) + 1}`,
+          )
+        : undefined,
       status:
         s.status === "won"
           ? "victory"
@@ -128,7 +174,33 @@ export function createEngineAdapter(
                 participant: e.participant,
               },
             ];
-          if (e.type === "SHIP_ATTACK") {
+          if (
+            e.type === "SHIELD_ACTIVATED" ||
+            e.type === "SHIELD_PREVENTED" ||
+            e.type === "HINT_GENERATED" ||
+            e.type === "SCANNER_ACTIVATED" ||
+            e.type === "DUAL_SCANNER_SUCCESS" ||
+            e.type === "DUAL_SCANNER_FAILED"
+          ) {
+            return [
+              {
+                id: e.index,
+                kind:
+                  e.type === "SHIELD_ACTIVATED"
+                    ? "shield"
+                    : e.type === "SHIELD_PREVENTED"
+                      ? "blocked"
+                      : e.type === "HINT_GENERATED"
+                        ? "hint"
+                        : e.type === "SCANNER_ACTIVATED"
+                          ? "scan"
+                          : "dual",
+                slotIds: e.circuitIds,
+                participant: e.participant,
+              },
+            ];
+          }
+          if (e.type === "SHIP_ATTACK" && e.damage > 0) {
             const failed = failures.find((f) => f.turn === e.turn);
             const guess = s.incorrectGuesses.find(
               (g) =>
@@ -208,11 +280,31 @@ export function createEngineAdapter(
       }),
     requestClue: (id) =>
       run(() => {
-        engine.requestHint(id);
+        throw new Error("Use Sam’s Toolkit for a limited hint.");
       }),
     shareCircuit: (id) =>
       run(() => {
         engine.shareCircuit(id);
+      }),
+    selfMatch: (ids) =>
+      run(() => {
+        engine.selfMatch(ids[0], ids[1]);
+      }),
+    useTool: (id, command) =>
+      run(() => {
+        const token = command.token;
+        if (id === "shield") engine.activateShield(token);
+        else if (id === "hint") engine.generateHint(token);
+        else if (id === "scanner")
+          engine.scanCircuit(command.targets[0], command.threshold!, token);
+        else {
+          if (!command.ownId) throw new Error("Select one of Sam’s numbers");
+          engine.selectCircuit(command.ownId);
+          const value = engine
+            .getGameState()
+            .circuits.find((c) => c.id === command.ownId)!.value!;
+          engine.dualScan(command.targets[0], command.targets[1], value, token);
+        }
       }),
     passTurn: () =>
       run(() => {

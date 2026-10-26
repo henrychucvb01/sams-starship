@@ -415,15 +415,17 @@ export function App({
                   the shared ship.
                 </li>
                 <li>
-                  Ask for one public number or share one of Sam’s numbers for
-                  one energy. Either action uses your turn. Nova and Pip then
-                  take their own turns.
+                  Share one of Sam’s numbers for one energy and a turn. Sam’s
+                  Toolkit offers a limited Hint and a one-hit Emergency Shield;
+                  each has its own finite charge. Scanners unlock in later
+                  missions.
                 </li>
                 <li>
-                  Review public deductions on a tile’s tooltip and previous
-                  mistakes in the deduction log. Pass if needed. Solo resolution
-                  works only when Sam holds every remaining copy of the selected
-                  number.
+                  For Self-Match, select two equal tiles in Sam’s row and press
+                  Connect Pair. The engine allows this only when Sam holds every
+                  remaining copy; if four remain, all four clear together.
+                  Review mistakes and tool clues in the deduction log, or pass
+                  your turn.
                 </li>
                 <li>
                   Restore all 48 circuits before time or hull runs out. Correct

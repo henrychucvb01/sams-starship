@@ -5,7 +5,13 @@ import {
   useState,
   type RefObject,
 } from "react";
-import type { MissionAdapter, MissionView, Slot } from "../types/presentation";
+import type {
+  MissionAdapter,
+  MissionView,
+  Slot,
+  ToolId,
+} from "../types/presentation";
+import { Toolkit } from "./Toolkit";
 import { Sam, Ship } from "./Ship";
 const clock = (s: number) =>
   `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
@@ -60,6 +66,31 @@ export function CircuitBoard({
 }) {
   const [own, setOwn] = useState("");
   const [target, setTarget] = useState("");
+  const [secondOwn, setSecondOwn] = useState("");
+  const [selectedTool, setSelectedTool] = useState<ToolId | null>(null);
+  const [toolTargets, setToolTargets] = useState<string[]>([]);
+  const [threshold, setThreshold] = useState("6");
+  const secondOwnSlot = state.ownCircuits.find(
+    (s) => s.id === secondOwn && !s.restored,
+  );
+  const clearSelection = () => {
+    setOwn("");
+    setTarget("");
+    setSecondOwn("");
+    setDeclaring(false);
+    setSelectedTool(null);
+    setToolTargets([]);
+  };
+  const selectTool = (id: ToolId) => {
+    setSelectedTool((t) => (t === id ? null : id));
+    setToolTargets([]);
+    setSecondOwn("");
+    setTarget("");
+    setDeclaring(false);
+  };
+  useEffect(() => {
+    clearSelection();
+  }, [state.board?.turnNumber]);
   const [busy, setBusy] = useState(false);
   const [declaring, setDeclaring] = useState(false);
   const [reset, setReset] = useState(0);
@@ -78,7 +109,7 @@ export function CircuitBoard({
   const [arc, setArc] = useState({ path: "", width: 1, height: 1 });
   useLayoutEffect(() => {
     const board = boardRef.current;
-    if (!board || effect?.kind !== "success" || effect.slotIds.length !== 2) {
+    if (!board || effect?.kind !== "success" || effect.slotIds.length < 2) {
       setArc({ path: "", width: 1, height: 1 });
       return;
     }
@@ -87,15 +118,22 @@ export function CircuitBoard({
     );
     if (tiles.some((t) => !t)) return;
     const box = board.getBoundingClientRect();
-    const [a, b] = tiles.map((t) => {
+    const points = tiles.map((t) => {
       const r = t!.getBoundingClientRect();
       return {
         x: r.left + r.width / 2 - box.left,
         y: r.top + r.height / 2 - box.top,
       };
     });
+    const path = points
+      .slice(1)
+      .map((b, i) => {
+        const a = points[i];
+        return `M${a.x} ${a.y} Q${(a.x + b.x) / 2} ${Math.min(a.y, b.y) - 35} ${b.x} ${b.y}`;
+      })
+      .join(" ");
     setArc({
-      path: `M${a.x} ${a.y} C${a.x} ${(a.y + b.y) / 2} ${b.x} ${(a.y + b.y) / 2} ${b.x} ${b.y}`,
+      path,
       width: box.width,
       height: box.height,
     });
@@ -111,24 +149,52 @@ export function CircuitBoard({
   );
   const confirmation = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (declaring && ownSlot && targetSlot) confirmation.current?.focus();
+    if (declaring && ownSlot && (targetSlot || secondOwnSlot))
+      confirmation.current?.focus();
   }, [declaring, own, target]);
   useEffect(() => {
-    if (!ownSlot || !targetSlot || !canAct) setDeclaring(false);
-  }, [ownSlot?.id, targetSlot?.id, canAct]);
+    if (!ownSlot || (!targetSlot && !secondOwnSlot) || !canAct)
+      setDeclaring(false);
+  }, [ownSlot?.id, targetSlot?.id, secondOwnSlot?.id, canAct]);
   function selectOwn(id: string) {
+    const clicked = state.ownCircuits.find((s) => s.id === id);
+    if (
+      !selectedTool &&
+      ownSlot &&
+      id !== own &&
+      clicked?.value === ownSlot.value
+    ) {
+      setSecondOwn(id);
+      setTarget("");
+      setDeclaring(true);
+      return;
+    }
     setOwn(id);
-    setDeclaring(!!targetSlot);
+    setSecondOwn("");
+    setDeclaring(!!targetSlot && !selectedTool);
   }
   function selectTarget(id: string) {
+    if (selectedTool) {
+      setToolTargets((ids) =>
+        ids.includes(id)
+          ? ids.filter((t) => t !== id)
+          : selectedTool === "dual-scanner"
+            ? [...ids.slice(-1), id]
+            : [id],
+      );
+      return;
+    }
     setTarget(id);
+    setSecondOwn("");
     setDeclaring(!!ownSlot);
   }
   function connect() {
-    if (busy || !canAct || !ownSlot || !targetSlot) return;
+    if (busy || !canAct || !ownSlot || (!targetSlot && !secondOwnSlot)) return;
     setBusy(true);
     try {
-      adapter.connect(ownSlot.id, targetSlot.id);
+      if (secondOwnSlot) adapter.selfMatch?.([ownSlot.id, secondOwnSlot.id]);
+      else if (targetSlot) adapter.connect(ownSlot.id, targetSlot.id);
+      setSecondOwn("");
       setDeclaring(false);
       setOwn("");
       setTarget("");
@@ -155,7 +221,17 @@ export function CircuitBoard({
     owner: string,
     index: number,
   ) {
-    const selected = owner === "sam" ? own === slot.id : target === slot.id;
+    const validToolTarget =
+      selectedTool &&
+      state.tools
+        ?.find((t) => t.id === selectedTool)
+        ?.targetIds?.includes(slot.id);
+    const selected =
+      owner === "sam"
+        ? own === slot.id || secondOwn === slot.id
+        : selectedTool
+          ? toolTargets.includes(slot.id)
+          : target === slot.id;
     const exact =
       slot.clue && slot.clue.min === slot.clue.max ? slot.clue.min : undefined;
     const shown = value ?? exact;
@@ -163,20 +239,26 @@ export function CircuitBoard({
     return (
       <button
         key={slot.id}
-        title={
-          slot.possibilities
-            ? `Public deductions: ${slot.possibilities.join(", ")}`
-            : undefined
-        }
         data-slot={slot.id}
-        className={`wire-tile ${value !== undefined ? "known" : "secret"} ${selected ? "chosen" : ""} ${slot.restored ? "cleared" : ""} ${exact !== undefined ? "disclosed" : ""} ${affected ? `wire-${effect?.kind}` : ""}`}
-        disabled={!canAct || slot.restored || busy}
+        className={`wire-tile ${value !== undefined ? "known" : "secret"} ${selected ? "chosen" : ""} ${validToolTarget && owner !== "sam" && !slot.restored ? "tool-target" : ""} ${slot.restored ? "cleared" : ""} ${exact !== undefined ? "disclosed" : ""} ${affected ? `wire-${effect?.kind}` : ""}`}
+        disabled={
+          !canAct ||
+          slot.restored ||
+          busy ||
+          (!!selectedTool &&
+            (owner === "sam"
+              ? selectedTool !== "dual-scanner"
+              : !validToolTarget))
+        }
         aria-pressed={selected}
         aria-label={`${owner === "sam" ? "Sam circuit" : `${owner}, slot ${index + 1}`}${value !== undefined ? ` ${value}, slot ${index + 1}` : exact !== undefined ? `, clue ${exact}` : ", hidden"}${slot.restored ? ", restored" : ""}`}
         onClick={() =>
           owner === "sam" ? selectOwn(slot.id) : selectTarget(slot.id)
         }
       >
+        {affected && (effect?.kind === "scan" || effect?.kind === "dual") && (
+          <span className="scanner-beam" aria-hidden="true" />
+        )}
         <span className="wire-pins" aria-hidden="true" />
         <strong>{shown ?? "?"}</strong>
         <span className="wire-index">
@@ -186,6 +268,11 @@ export function CircuitBoard({
               ? "SELECTED"
               : `SLOT ${index + 1}`}
         </span>
+        {slot.scans?.length ? (
+          <span className="scanner-result">
+            {slot.scans.map((s) => `${s.relation} ${s.threshold}`).join(" · ")}
+          </span>
+        ) : null}
         {slot.excluded?.length ? (
           <span className="incorrect-mark">≠ {slot.excluded.join(", ")}</span>
         ) : null}
@@ -311,13 +398,15 @@ export function CircuitBoard({
               <div className="rack-label">
                 <Sam
                   expression={
-                    effect?.kind === "damage"
-                      ? "surprised"
-                      : state.hull <= 25
-                        ? "worried"
-                        : effect?.kind === "success"
-                          ? "happy"
-                          : "thinking"
+                    effect?.kind === "hint"
+                      ? "thinking"
+                      : effect?.kind === "damage"
+                        ? "surprised"
+                        : state.hull <= 25
+                          ? "worried"
+                          : effect?.kind === "success"
+                            ? "happy"
+                            : "thinking"
                   }
                 />
                 <div>
@@ -375,7 +464,7 @@ export function CircuitBoard({
                 ? `${targetRoom!.name} · slot ${targetRoom!.slots.findIndex((s) => s.id === target) + 1}`
                 : "② Select a crew circuit"}
             </span>
-            {ownSlot && targetSlot && !declaring && (
+            {ownSlot && (targetSlot || secondOwnSlot) && !declaring && (
               <button
                 className="secondary compact"
                 onClick={() => setDeclaring(true)}
@@ -384,7 +473,7 @@ export function CircuitBoard({
               </button>
             )}
           </div>
-          {declaring && ownSlot && targetSlot && (
+          {declaring && ownSlot && (targetSlot || secondOwnSlot) && (
             <div
               className="declaration-panel"
               ref={confirmation}
@@ -399,8 +488,18 @@ export function CircuitBoard({
                 <span className="eyebrow">DECLARE YOUR CONNECTION</span>
                 <p>
                   Connect Sam’s <strong>{ownSlot.value}</strong> to{" "}
-                  {targetRoom!.name}, slot{" "}
-                  {targetRoom!.slots.findIndex((s) => s.id === target) + 1}?
+                  {secondOwnSlot
+                    ? "Sam’s second matching circuit"
+                    : `${targetRoom!.name}, slot ${targetRoom!.slots.findIndex((s) => s.id === target) + 1}`}
+                  ?
+                  {secondOwnSlot && (
+                    <small className="self-explainer">
+                      {state.selfMatches?.find(
+                        (m) => m.number === ownSlot.value,
+                      )?.explanation ??
+                        "The engine checks whether Sam holds every remaining copy."}
+                    </small>
+                  )}
                 </p>
               </div>
               <label>
@@ -417,6 +516,7 @@ export function CircuitBoard({
                 onClick={() => {
                   setDeclaring(false);
                   setTarget("");
+                  setSecondOwn("");
                 }}
               >
                 Cancel
@@ -425,10 +525,87 @@ export function CircuitBoard({
                 className="primary"
                 disabled={busy || !canAct}
                 onClick={connect}
+                aria-label={secondOwnSlot ? "Connect Pair" : "Connect circuits"}
               >
-                Connect <span>ϟ</span>
+                {secondOwnSlot ? "Connect Pair" : "Connect"} <span>ϟ</span>
               </button>
             </div>
+          )}
+          {selectedTool && (
+            <div
+              className="tool-confirmation"
+              role="region"
+              aria-label="Confirm tool"
+            >
+              <span className="eyebrow">
+                {state.tools?.find((t) => t.id === selectedTool)?.name ??
+                  "Tool"}
+              </span>
+              <p>
+                {selectedTool === "shield"
+                  ? "Activate a shield around the shared ship."
+                  : selectedTool === "hint"
+                    ? "Receive one engine-generated deduction clue."
+                    : selectedTool === "dual-scanner"
+                      ? `Choose two crew circuits and one Sam number. ${toolTargets.length}/2 targets selected.`
+                      : "Choose a crew circuit and enter a threshold."}
+              </p>
+              {selectedTool === "scanner" && (
+                <label>
+                  Threshold
+                  <input
+                    aria-label="Scanner threshold"
+                    type="number"
+                    value={threshold}
+                    onChange={(e) => setThreshold(e.target.value)}
+                  />
+                </label>
+              )}
+              <button
+                className="text-button"
+                onClick={() => {
+                  setSelectedTool(null);
+                  setToolTargets([]);
+                }}
+              >
+                Cancel tool
+              </button>
+              <button
+                className="primary"
+                disabled={
+                  !canAct ||
+                  busy ||
+                  !adapter.useTool ||
+                  (selectedTool === "scanner" &&
+                    (toolTargets.length !== 1 ||
+                      !Number.isSafeInteger(Number(threshold)))) ||
+                  (selectedTool === "dual-scanner" &&
+                    (toolTargets.length !== 2 || !ownSlot))
+                }
+                onClick={() => {
+                  if (!canAct || busy) return;
+                  setBusy(true);
+                  try {
+                    adapter.useTool?.(selectedTool, {
+                      targets: toolTargets,
+                      token: state.toolToken ?? "",
+                      ownId: own,
+                      threshold: Number(threshold),
+                    });
+                    clearSelection();
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              >
+                Confirm tool
+              </button>
+            </div>
+          )}
+          {state.toolClue && (
+            <p className="sam-clue" role="status">
+              ✧ {state.toolClue}
+            </p>
           )}
           <div className="turn-tools">
             <button
@@ -477,6 +654,25 @@ export function CircuitBoard({
             aria-label={`Spaceship condition: ${hullStage}`}
           >
             <span className="panel-kicker">SS BUTTER · SHARED SHIP</span>
+            {(state.shieldActive ||
+              effect?.kind === "shield" ||
+              effect?.kind === "blocked") && (
+              <div
+                className={`energy-shield ${effect?.kind === "blocked" ? "shield-impact" : ""}`}
+                aria-label={
+                  effect?.kind === "blocked"
+                    ? "Shield absorbed the attack"
+                    : "Emergency Shield active"
+                }
+              />
+            )}
+            {effect?.kind === "blocked" && (
+              <div
+                className="blocked-projectile"
+                key={effect.id}
+                aria-hidden="true"
+              />
+            )}
             <Ship restored={state.restored} damaged={state.hull <= 75} />
             {effect?.kind === "damage" && (
               <div className="attack-vfx" key={effect.id} aria-hidden="true">
@@ -502,6 +698,12 @@ export function CircuitBoard({
                       : "Hull lost · emergency shutdown"}
             </p>
           </div>
+          <Toolkit
+            tools={state.tools}
+            selected={selectedTool}
+            onSelect={selectTool}
+            canAct={canAct && !effect}
+          />
           <section className="mini-terminal">
             <div className="section-heading">
               <span className="eyebrow">EMERGENCY COMMS</span>
@@ -517,19 +719,6 @@ export function CircuitBoard({
               ))}
             </div>
             <button
-              className="secondary"
-              disabled={
-                !targetSlot ||
-                !canAct ||
-                state.energy <= 0 ||
-                (!!targetSlot?.clue &&
-                  targetSlot.clue.min === targetSlot.clue.max)
-              }
-              onClick={() => adapter.requestClue(target)}
-            >
-              Request clue · 1 energy
-            </button>
-            <button
               className="text-button transmit"
               disabled={
                 !ownSlot || !canAct || state.energy <= 0 || ownSlot?.shared
@@ -539,7 +728,8 @@ export function CircuitBoard({
               Share selected Sam circuit · 1 energy
             </button>
             <small>
-              Select a crew slot for a clue, or share your selected number.
+              Share a selected Sam number for one energy and a turn. Use Sam’s
+              Toolkit for limited deduction help.
             </small>
           </section>
         </aside>

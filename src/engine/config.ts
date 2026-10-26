@@ -10,3 +10,6 @@ export const MISSIONS: readonly Mission[] = [
  { id: 'engines', name: 'Restart the Engines', puzzle: 'matching', availability: 'development' },
  { id: 'communications', name: 'Restore Communications', puzzle: 'sequence', availability: 'development' },
 ];
+
+/** Per-mission overrides may lock tools now; progress unlock policy is deferred. */
+export const DEFAULT_TOOLS = Object.freeze({scanner:{uses:1,unlocked:true},dualScanner:{uses:1,unlocked:true},shield:{uses:1,unlocked:true},hint:{uses:1,unlocked:true}});

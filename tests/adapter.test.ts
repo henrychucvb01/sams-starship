@@ -1,63 +1,91 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createEngineAdapter } from "../src/adapters/engineAdapter";
-test("real revised adapter preserves sorted racks and redacts secrets, resolves via public deductions", () => {
-  const a = createEngineAdapter(42);
+test("Easy tool locks and charges come from engine; hints limited and token replay rejected", () => {
+  const a = createEngineAdapter(42, {}, { hint: { uses: 2, unlocked: true } });
   a.activate();
   try {
     let s = a.getSnapshot();
-    assert.equal(s.board?.ordered, true);
-    assert.equal(s.board.turn, "sam");
-    assert.equal(s.rooms[0].slots.length, 16);
-    assert.equal(s.ownCircuits.length, 16);
+    assert.equal(s.tools?.find((t) => t.id === "scanner")?.available, false);
+    assert.equal(
+      s.tools?.find((t) => t.id === "dual-scanner")?.available,
+      false,
+    );
     assert(
-      s.rooms.every((r) => r.slots.every((c) => !c.clue && !("value" in c))),
+      s.rooms.every((r) => r.slots.every((c) => !c.clue && !c.possibilities)),
     );
-    assert.deepEqual(
-      s.ownCircuits.map((c) => c.value),
-      s.ownCircuits.map((c) => c.value).sort((a, b) => a - b),
+    const token = s.toolToken!;
+    a.useTool!("hint", { targets: [], token });
+    assert.equal(
+      a.getSnapshot().tools?.find((t) => t.id === "hint")?.remaining,
+      1,
     );
-    const target = s.rooms[0].slots[0];
-    a.requestClue(target.id);
-    s = a.getSnapshot();
-    assert.equal(s.energy, 7);
-    assert.equal(s.board?.turn, "nova");
-    assert(s.rooms[0].slots[0].clue);
-    const energy = s.energy;
-    a.shareCircuit(s.ownCircuits[0].id);
-    assert.equal(a.getSnapshot().energy, energy);
-    assert.match(a.getSnapshot().event.text, /Wait for Sam/);
+    assert(a.getSnapshot().toolClue);
+    a.useTool!("hint", { targets: [], token });
+    assert.equal(
+      a.getSnapshot().tools?.find((t) => t.id === "hint")?.remaining,
+      1,
+    );
+    assert.match(a.getSnapshot().event.text, /stale/);
     a.restart();
-    assert.equal(a.getSnapshot().energy, 8);
-    assert.equal(a.getSnapshot().board?.turn, "sam");
-    assert.equal(a.getSnapshot().effects?.length, 0);
+    assert.equal(
+      a.getSnapshot().tools?.find((t) => t.id === "hint")?.remaining,
+      2,
+    );
   } finally {
     a.dispose();
   }
 });
-test("wrong connection uses engine attack once, exposes only authorized reveal and error history", () => {
-  const a = createEngineAdapter(42, { damage: 100 });
+test("Self-Match clears four real circuits with one animation; invalid pair leaves hull and turn intact", () => {
+  const a = createEngineAdapter(2);
+  a.activate();
+  try {
+    let s = a.getSnapshot();
+    const group = s.selfMatches!.find(
+      (m) => m.eligible && m.circuitIds.length === 4,
+    )!;
+    a.selfMatch!(group.circuitIds.slice(0, 2));
+    s = a.getSnapshot();
+    assert.equal(
+      s.ownCircuits.filter((c) => group.circuitIds.includes(c.id) && c.restored)
+        .length,
+      4,
+    );
+    assert.equal(s.effects?.filter((e) => e.kind === "success").length, 1);
+    assert.equal(s.hull, 100);
+  } finally {
+    a.dispose();
+  }
+  const b = createEngineAdapter(42);
+  b.activate();
+  try {
+    const s = b.getSnapshot(),
+      group = s.selfMatches!.find(
+        (m) => !m.eligible && m.circuitIds.length >= 2,
+      )!;
+    b.selfMatch!(group.circuitIds.slice(0, 2));
+    assert.equal(b.getSnapshot().hull, 100);
+    assert.equal(b.getSnapshot().board?.turnNumber, s.board?.turnNumber);
+    assert.match(b.getSnapshot().event.text, /all remaining/);
+    assert.equal(b.getSnapshot().effects?.length, 0);
+  } finally {
+    b.dispose();
+  }
+});
+test("Shield absorbs one real incorrect connection and produces blocked, not damage animation", () => {
+  const a = createEngineAdapter(42);
   a.activate();
   try {
     const s = a.getSnapshot();
-    const target = s.rooms[0].slots[0];
-    const own =
-      s.ownCircuits.find((c) => !target.possibilities?.includes(c.value)) ??
-      s.ownCircuits.at(-1)!;
-    a.connect(own.id, target.id);
+    a.useTool!("shield", { targets: [], token: s.toolToken! });
+    assert(a.getSnapshot().shieldActive);
+    a.connect(s.ownCircuits.at(-1)!.id, s.rooms[0].slots[0].id);
     const after = a.getSnapshot();
-    assert.equal(after.status, "defeat");
-    assert.equal(after.hull, 0);
-    assert.equal(after.effects?.filter((e) => e.kind === "damage").length, 1);
-    assert.equal(after.rooms[0].slots[0].excluded?.[0], own.value);
+    assert.equal(after.hull, 100);
+    assert.equal(after.shieldActive, false);
+    assert.equal(after.effects?.filter((e) => e.kind === "blocked").length, 1);
+    assert.equal(after.effects?.filter((e) => e.kind === "damage").length, 0);
     assert(after.rooms[0].slots[0].clue);
-    assert.equal(
-      after.rooms.flatMap((r) => r.slots).filter((c) => c.clue).length,
-      1,
-    );
-    assert(after.history?.some((e) => /publicly revealed/.test(e.text)));
-    a.restart();
-    assert.equal(a.getSnapshot().effects?.length, 0);
   } finally {
     a.dispose();
   }

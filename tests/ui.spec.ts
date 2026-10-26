@@ -1,3 +1,5 @@
+import { deduce } from "../src/engine/ai";
+import type { Circuit, IncorrectGuess } from "../src/engine/types";
 import { test, expect, type Page } from "@playwright/test";
 async function launch(page: Page, path = "/") {
   await page.clock.install();
@@ -28,82 +30,105 @@ async function waitHuman(page: Page) {
   }
 }
 async function solve(page: Page) {
-  for (let steps = 0; steps < 100; steps++) {
+  for (let step = 0; step < 100; step++) {
     await waitHuman(page);
     if (await page.getByRole("heading", { name: /Mission Complete/ }).count())
       return;
-    const own = await page
-      .locator(".rack-sam .wire-tile:not(:disabled)")
-      .evaluateAll((els) =>
-        els.map((e) => ({
-          id: e.getAttribute("data-slot")!,
-          value: Number(e.querySelector("strong")!.textContent),
-        })),
-      );
-    const targets = await page
-      .locator(
-        ".rack-nova .wire-tile:not(:disabled),.rack-pip .wire-tile:not(:disabled)",
-      )
-      .evaluateAll((els) =>
-        els.map((e) => ({
-          id: e.getAttribute("data-slot")!,
-          poss: (e.getAttribute("title") ?? "")
-            .replace("Public deductions: ", "")
-            .split(", ")
-            .map(Number),
-        })),
-      );
-    let match:
-      { a: (typeof own)[number]; b: (typeof targets)[number] } | undefined;
+    // Test driver reasons ONLY from rendered public board. No private board or seed lookup.
+    const circuits = (await page
+      .locator(".rack")
+      .evaluateAll((rows) =>
+        rows.flatMap((row) =>
+          Array.from(row.querySelectorAll(".wire-tile")).map(
+            (el, position) => ({
+              id: el.getAttribute("data-slot")!,
+              owner: row.classList.contains("rack-sam")
+                ? "sam"
+                : row.classList.contains("rack-nova")
+                  ? "nova"
+                  : "pip",
+              position,
+              restored: el.classList.contains("cleared"),
+              ...((el.querySelector("strong")!.textContent ?? "?") !== "?"
+                ? { value: Number(el.querySelector("strong")!.textContent) }
+                : {}),
+            }),
+          ),
+        ),
+      )) as Circuit[];
+    const reveals = circuits
+      .filter((c) => c.value !== undefined)
+      .map((c) => ({
+        circuitId: c.id,
+        value: c.value!,
+        reason: "clue" as const,
+      }));
+    const domains = deduce({
+      self: "sam",
+      circuits,
+      reveals,
+      incorrectGuesses: [],
+      min: 1,
+      max: 12,
+      copies: 4,
+      energy: 8,
+      deductionPasses: 48,
+    });
+    const own = circuits.filter((c) => c.owner === "sam" && !c.restored);
+    let move: { a: Circuit; b: Circuit } | undefined;
     for (const a of own) {
-      const b = targets.find(
-        (b) => b.poss.length === 1 && b.poss[0] === a.value,
+      const b = circuits.find(
+        (c) =>
+          c.owner !== "sam" &&
+          !c.restored &&
+          domains[c.id]?.length === 1 &&
+          domains[c.id][0] === a.value,
       );
       if (b) {
-        match = { a, b };
+        move = { a, b };
         break;
       }
     }
-    if (match) {
-      await page.locator(`[data-slot="${match.a.id}"]`).click();
-      await page.locator(`[data-slot="${match.b.id}"]`).click();
+    if (move) {
+      await page.locator(`[data-slot="${move.a.id}"]`).click();
+      await page.locator(`[data-slot="${move.b.id}"]`).click();
       await page.getByRole("button", { name: /^Connect / }).click();
     } else {
-      const hidden = page
-        .locator(
-          ".rack-nova .wire-tile.secret:not(.disclosed):not(:disabled),.rack-pip .wire-tile.secret:not(.disclosed):not(:disabled)",
-        )
-        .first();
-      if (await hidden.count()) {
-        await hidden.click();
-        if (
-          await page.getByRole("button", { name: "Request clue" }).isEnabled()
-        )
-          await page.getByRole("button", { name: "Request clue" }).click();
-        else
-          await page
-            .getByRole("button", { name: "Pass turn", exact: true })
-            .click();
+      const solo = own.find(
+        (c) =>
+          own.filter((t) => t.value === c.value).length >= 2 &&
+          own.filter((t) => t.value === c.value).length +
+            circuits.filter((t) => t.restored && t.value === c.value).length ===
+            4,
+      );
+      if (solo) {
+        const pair = own.filter((c) => c.value === solo.value);
+        await page.locator(`[data-slot="${pair[0].id}"]`).click();
+        await page.locator(`[data-slot="${pair[1].id}"]`).click();
+        await page.getByRole("button", { name: "Connect Pair" }).click();
       } else if (own.length) {
         await page.locator(`[data-slot="${own[0].id}"]`).click();
-        await page
-          .getByRole("button", { name: "Resolve selected number alone" })
-          .click();
-        if (
-          await page
-            .getByRole("button", { name: "Pass turn", exact: true })
-            .isEnabled()
-        )
+        const share = page.getByRole("button", {
+          name: "Share selected Sam circuit",
+        });
+        let shared = false;
+        for (const candidate of own) {
+          await page.locator(`[data-slot="${candidate.id}"]`).click();
+          if (await share.isEnabled()) {
+            await share.click();
+            shared = true;
+            break;
+          }
+        }
+        if (!shared)
           await page
             .getByRole("button", { name: "Pass turn", exact: true })
             .click();
       } else await page.clock.runFor(1500);
     }
     await page.clock.runFor(3100);
-    if (await page.getByRole("heading", { name: /Mission Complete/ }).count())
-      return;
   }
-  throw new Error("Public deduction test did not complete");
+  throw new Error("Public-board test did not complete");
 }
 test("real standard-deck mission: sorted board, public deductions, AI turns, victory and replay", async ({
   page,
@@ -199,9 +224,7 @@ test("production navigation, persisted preferences, off-turn controls, timeout a
   await expect(
     page.getByRole("button", { name: "Pass turn", exact: true }),
   ).toBeDisabled();
-  await expect(
-    page.getByRole("button", { name: "Request clue" }),
-  ).toBeDisabled();
+  await expect(page.getByRole("button", { name: /Sam’s Hint/ })).toBeDisabled();
   await page.clock.runFor(300000);
   await page.clock.runFor(1200);
   await expect(
@@ -285,4 +308,111 @@ test("isolated turn/reveal fixtures: keyboard confirmation, cancel, duplicate pr
     .click();
   await page.clock.runFor(700);
   await expect(page.locator(".attack-vfx")).toBeHidden();
+});
+
+test("Self-Match clears all four; rejected pair explains eligibility without damage or turn loss", async ({
+  page,
+}) => {
+  await launch(page, "/tests/fixtures/real.html?self=1");
+  const before = await page
+    .locator(".rack-sam .wire-tile")
+    .evaluateAll((els) => els.map((e) => e.getAttribute("data-slot")));
+  await page.locator('[data-slot="sam-2"]').click();
+  await page.locator('[data-slot="sam-3"]').click();
+  await expect(
+    page.getByRole("button", { name: "Connect Pair", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Connect Pair", exact: true }).click();
+  await expect(page.locator(".rack-sam .wire-tile.cleared")).toHaveCount(4);
+  await expect(page.locator(".connection-arc path")).toHaveAttribute("d", /^M/);
+  expect(
+    await page
+      .locator(".rack-sam .wire-tile")
+      .evaluateAll((els) => els.map((e) => e.getAttribute("data-slot"))),
+  ).toEqual(before);
+  await page.goto("/tests/fixtures/real.html");
+  await page.getByRole("button", { name: "Play Solo" }).click();
+  await page.getByRole("button", { name: "Start mission" }).click();
+  await page.getByRole("button", { name: "Begin Mission" }).click();
+  await page.locator('[data-slot="sam-0"]').click();
+  await page.locator('[data-slot="sam-1"]').click();
+  await page.getByRole("button", { name: "Connect Pair", exact: true }).click();
+  await expect(page.locator(".board-instruction")).toContainText(
+    "all remaining copies",
+  );
+  await expect(page.getByText("100%", { exact: true })).toBeVisible();
+  await expect(page.locator(".turn-pill")).toContainText("Sam's");
+  await expect(page.locator(".attack-vfx")).toHaveCount(0);
+});
+test("Easy toolkit locks, limited hint and shield interception from real engine", async ({
+  page,
+}, info) => {
+  await launch(page, "/tests/fixtures/real.html");
+  await expect(
+    page.getByRole("button", { name: /Circuit Scanner/ }),
+  ).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: /Dual Scanner/ }),
+  ).toBeDisabled();
+  await expect(page.locator(".wire-tile[title]")).toHaveCount(0);
+  await page.getByRole("button", { name: /Sam’s Hint/ }).click();
+  await page.getByRole("button", { name: "Confirm tool" }).dblclick();
+  await expect(page.locator(".sam-clue")).toBeVisible();
+  await expect(page.getByRole("button", { name: /Sam’s Hint/ })).toBeDisabled();
+  await expect(page.locator(".turn-pill")).toContainText("Sam's");
+  await page.clock.runFor(800);
+  await page.getByRole("button", { name: /Emergency Shield/ }).click();
+  await page.getByRole("button", { name: "Confirm tool" }).click();
+  await expect(
+    page.getByLabel("Emergency Shield active", { exact: true }),
+  ).toBeVisible();
+  await page.clock.runFor(800);
+  await page.locator(".rack-sam .wire-tile").last().click();
+  await page.locator(".rack-nova .wire-tile").first().click();
+  await page.getByRole("button", { name: /^Connect / }).click();
+  await expect(
+    page.getByLabel("Shield absorbed the attack", { exact: true }),
+  ).toBeVisible();
+  await expect(page.locator(".blocked-projectile")).toHaveCount(1);
+  await expect(page.locator(".attack-vfx")).toHaveCount(0);
+  await expect(page.getByText("100%", { exact: true })).toBeVisible();
+  await page.screenshot({
+    path: `docs/previews/${info.project.name}-shield.png`,
+    fullPage: true,
+  });
+  await page.clock.runFor(3100);
+  await expect(
+    page.getByRole("button", { name: /Emergency Shield/ }),
+  ).toBeDisabled();
+});
+test("later-mission scanner and dual scanner target controls use real tool outcomes", async ({
+  page,
+}) => {
+  await launch(page, "/tests/fixtures/real.html?tools=all");
+  await page.getByRole("button", { name: /Circuit Scanner/ }).click();
+  await expect(page.locator(".tool-target")).toHaveCount(32);
+  await page.locator('[data-slot="nova-0"]').click();
+  await page.getByRole("spinbutton", { name: "Scanner threshold" }).fill("6");
+  await page.getByRole("button", { name: "Confirm tool" }).click();
+  await expect(page.locator('[data-slot="nova-0"] .scanner-beam')).toHaveCount(
+    1,
+  );
+  await expect(
+    page.locator('[data-slot="nova-0"] .scanner-result'),
+  ).toContainText("below 6");
+  await expect(page.locator('[data-slot="nova-0"] strong')).toHaveText("?");
+  await page.goto("/tests/fixtures/real.html?tools=all");
+  await page.getByRole("button", { name: "Play Solo" }).click();
+  await page.getByRole("button", { name: "Start mission" }).click();
+  await page.getByRole("button", { name: "Begin Mission" }).click();
+  await page.locator('[data-slot="sam-0"]').click();
+  await page.getByRole("button", { name: /Dual Scanner/ }).click();
+  await page.locator('[data-slot="pip-0"]').click();
+  await page.locator('[data-slot="nova-15"]').click();
+  await page.getByRole("button", { name: "Confirm tool" }).click();
+  await expect(page.locator('[data-slot="sam-0"]')).toHaveClass(/cleared/);
+  await expect(page.locator('[data-slot="pip-0"]')).toHaveClass(/cleared/);
+  await expect(page.locator('[data-slot="nova-15"] strong')).toHaveText("?");
+  await page.clock.runFor(700);
+  await expect(page.locator(".connection-arc")).toBeVisible();
 });
