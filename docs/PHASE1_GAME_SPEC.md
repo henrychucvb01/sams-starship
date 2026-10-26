@@ -7,7 +7,7 @@ Keep separate from the school SPARK application.
 Working title: Sam's Starship.
 
 ## Confirmed rules
-- Cooperative numerical deduction: match hidden numbered circuits across isolated spaceship rooms. Do not substitute a generic rotate-the-wires puzzle.
+- Difficulty-dependent puzzle types: Easy uses hidden-number matching; Medium adds numerical sequences; Hard combines matching and sequences with more complex clues. All retain cooperative deduction across isolated rooms.
 - Incorrect connection causes spaceship damage; losing all hull integrity loses the mission.
 - Solo mode includes computer-controlled crewmates with their own hidden circuits and limited clue messages.
 - Players cannot inspect other crew members' hidden circuit values.
@@ -27,9 +27,9 @@ Working title: Sam's Starship.
 10. Responsive, accessible UI: keyboard/touch controls, no essential information conveyed by color alone, readable labels.
 
 ## Prototype defaults (adjustable after testing)
-- 5-minute mission.
+- Difficulty selector: Easy / Medium / Hard. Start with Easy as the first implemented playable slice; add Medium and Hard without redesigning the core architecture.\n- 5-minute mission.
 - 100 hull integrity; wrong connection costs 20.
-- 3 initial hint-energy units.
+- 3 initial hint-energy units on Easy; fewer hints on harder difficulties (tune after playtesting).
 - 6 matching pairs distributed across the three crew members.
 - Seeded/replayable puzzle generator for testing.
 These numbers are provisional tuning values, not previously approved design decisions.
