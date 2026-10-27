@@ -10,7 +10,7 @@ async function finishSetup(page: Page) {
 async function launch(page: Page, path = "/") {
   await page.clock.install();
   await page.goto(path);
-  await page.getByRole("button", { name: "Play Solo" }).click();
+  await page.getByRole("button", { name: "Let's Fly!" }).click();
   await page.getByRole("button", { name: "Start mission" }).click();
   await page.getByRole("button", { name: "Begin Mission" }).click();
   await finishSetup(page);
@@ -193,7 +193,7 @@ test("real standard-deck mission: sorted board, public deductions, AI turns, vic
   await expect(page.getByText(/4:5[0-9]/, { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Leave mission" }).click();
   await page.getByRole("button", { name: "Back to the ship" }).click();
-  await expect(page.getByRole("button", { name: "Play Solo" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Let's Fly!" })).toBeVisible();
   expect(errors).toEqual([]);
 });
 test("real engine mistake triggers impact, public reveal, AI turn and fatal defeat/retry", async ({
@@ -267,10 +267,7 @@ test("production navigation, persisted preferences, off-turn controls, timeout a
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await expect(page.getByRole("checkbox")).toBeChecked();
   await page.keyboard.press("Escape");
-  await expect(
-    page.getByRole("button", { name: /Private Room/ }),
-  ).toBeDisabled();
-  await page.getByRole("button", { name: "Play Solo" }).click();
+  await page.getByRole("button", { name: "Let's Fly!" }).click();
   const card = page.locator(".mission-card").first();
   await card.getByRole("combobox").selectOption("Hard");
   await expect(card.getByRole("button")).toBeDisabled();
@@ -355,7 +352,7 @@ test("Self-Match clears all four; rejected pair explains eligibility without dam
       .evaluateAll((els) => els.map((e) => e.getAttribute("data-slot"))),
   ).toEqual(before);
   await page.goto("/tests/fixtures/real.html");
-  await page.getByRole("button", { name: "Play Solo" }).click();
+  await page.getByRole("button", { name: "Let's Fly!" }).click();
   await page.getByRole("button", { name: "Start mission" }).click();
   await page.getByRole("button", { name: "Begin Mission" }).click();
   await finishSetup(page);
@@ -431,7 +428,7 @@ test("later-mission scanner and dual scanner target controls use real tool outco
   ).toContainText("below 6");
   await expect(page.locator('[data-slot="nova-0"] strong')).toHaveText("?");
   await page.goto("/tests/fixtures/real.html?tools=all");
-  await page.getByRole("button", { name: "Play Solo" }).click();
+  await page.getByRole("button", { name: "Let's Fly!" }).click();
   await page.getByRole("button", { name: "Start mission" }).click();
   await page.getByRole("button", { name: "Begin Mission" }).click();
   await finishSetup(page);
@@ -562,7 +559,7 @@ test("drag to crew with mobile edge scrolling opens confirmation and cancellatio
 async function launchLab(page: Page, kind: "yellow" | "red") {
   await page.clock.install();
   await page.goto("/tests/fixtures/real.html");
-  await page.getByRole("button", { name: "Play Solo" }).click();
+  await page.getByRole("button", { name: "Let's Fly!" }).click();
   await page
     .getByRole("button", {
       name: kind === "yellow" ? /Circuit Training 4/ : /Circuit Training 7/,

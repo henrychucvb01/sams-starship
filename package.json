@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "tsc -b && vite build",
+    "check:title-assets": "node scripts/check-title-assets.mjs",
+    "build:release": "npm run check:title-assets && npm run build",
     "preview": "vite preview --host 0.0.0.0",
     "test": "node --import tsx --test tests/*.test.ts",
     "test:ui": "playwright test"

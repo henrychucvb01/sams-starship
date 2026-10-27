@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { TitleScreen } from "../components/TitleScreen";
 import { CircuitBoard } from "../components/CircuitBoard";
 import { Ship, Sam } from "../components/Ship";
 import {
@@ -115,15 +116,15 @@ export function App({
   return (
     <div className={`app ${reduced ? "reduce-motion" : ""}`}>
       <div className="stars" aria-hidden="true" />
-      <header className="topbar">
+      {screen !== "menu" && <header className="topbar">
         <button
           className="brand text-button"
           onClick={menu}
-          aria-label="SLButter home"
+          aria-label="Starship Panic! home"
         >
-          <span className="brand-mark">slb.</span>
+          <span className="brand-mark" aria-hidden="true">✦</span>
           <span>
-            SMOOTH LIKE BUTTER
+            STARSHIP PANIC!
             <span className="brand-sub">A SMALL SHIP. A BIG ADVENTURE.</span>
           </span>
         </button>
@@ -143,62 +144,16 @@ export function App({
             ⚙
           </button>
         </div>
-      </header>
+      </header>}
       <main>
         {screen === "menu" && (
-          <section className="title-screen">
-            <div className="hero-copy">
-              <div className="eyebrow">
-                <span /> EMERGENCY TRANSMISSION 001
-              </div>
-              <h1 ref={heading} tabIndex={-1}>
-                SAM'S
-                <br />
-                <em>STARSHIP</em>
-                <span className="title-spark">✦</span>
-              </h1>
-              <p className="subtitle">A Smooth Like Butter Adventure</p>
-              <p className="intro-copy">
-                Lost power. Scattered crew.
-                <br />
-                One little ship counting on you.
-              </p>
-              <button
-                className="primary play"
-                onClick={() => setScreen("missions")}
-              >
-                Play Solo <span>↗</span>
-              </button>
-              <div className="future-modes">
-                <button disabled>
-                  Private Room <small>COMING SOON</small>
-                </button>
-                <button disabled>
-                  Public Multiplayer <small>COMING SOON</small>
-                </button>
-              </div>
-              <button
-                className="text-button help-link"
-                onClick={() => setOverlay("help")}
-              >
-                First time aboard? How to play <span>→</span>
-              </button>
-            </div>
-            <div className="hero-art">
-              <div className="planet" />
-              <span className="floating-label">YOUR CREW NEEDS YOU</span>
-              <Ship />
-              <span className="art-note">
-                Environment concept · Sam artwork pending
-              </span>
-            </div>
-            <div className="hero-foot">
-              <span>COZY SPACE. CLEVER CONNECTIONS.</span>
-              <span>
-                SOLO PROTOTYPE <i>✧</i> SLBUTTER
-              </span>
-            </div>
-          </section>
+          <TitleScreen
+            headingRef={heading}
+            onFly={() => setScreen("missions")}
+            onHelp={() => setOverlay("help")}
+            onSettings={() => setOverlay("settings")}
+            reduced={reduced}
+          />
         )}
         {screen === "missions" && (
           <section className="page mission-page">
@@ -392,10 +347,10 @@ export function App({
           </section>
         )}
       </main>
-      <footer>
+      {screen !== "menu" && <footer>
         <span>SLBUTTER ORIGINAL</span>
         <span>Made for a little everyday adventure. ✦</span>
-      </footer>
+      </footer>}
       <dialog
         ref={modal}
         onCancel={() => setOverlay(null)}
