@@ -1,5 +1,5 @@
 import { GameEngine, MISSIONS } from "../engine";
-import type { GameState, Tuning, ToolSettings } from "../engine";
+import type { GameState, Tuning, ToolSettings, EngineOptions } from "../engine";
 import type { MissionAdapter, MissionView } from "../types/presentation";
 export const TRAINING_MISSIONS = MISSIONS.filter(
   (m) => m.id === "circuit-4" || m.id === "circuit-7",
@@ -10,18 +10,21 @@ export function createEngineAdapter(
   tuning: Partial<Tuning> = {},
   toolSettings: Partial<ToolSettings> = {},
   missionId = "lights",
+  options: EngineOptions = {},
 ): MissionAdapter {
-  const engine = new GameEngine(missionId, "easy", seed, tuning, {
+  let engine = new GameEngine(missionId, "easy", seed, tuning, {
     scanner: { uses: 1, unlocked: false },
     dualScanner: { uses: 1, unlocked: false },
     ...toolSettings,
-  });
+  }, options);
+  let missionChosen = false;
+  let interactionPending = false;
   const listeners = new Set<() => void>();
   let duration = engine.getGameState().remainingMs;
   let timer: ReturnType<typeof setInterval> | undefined;
   let last = 0;
   let aiDue = Infinity;
-  let scheduledTurn = -1;
+  let scheduledTurn = "";
   let feedback: string | null = null;
   const map = (s: GameState): MissionView => {
     const label = (id: string) => {
@@ -38,6 +41,8 @@ export function createEngineAdapter(
           : `${e.participant}: restored ${e.circuitIds.length} circuits with number ${e.number}.`;
       if (e.type === "SCANNER_ACTIVATED")
         return `${label(e.circuitIds[0])}: ${e.message}`;
+      if (e.type === "STARTING_INFORMATION")
+        return `${label(e.circuitIds[0])}: my number is ${e.number}. Starting information.`;
       if (e.type === "CLUE_SHARED")
         return `${label(e.circuitId)}: my number is ${e.value}.`;
       return e.message;
@@ -61,10 +66,7 @@ export function createEngineAdapter(
     const slot = (c: GameState["circuits"][number]) => ({
       id: c.id,
       type: c.kind,
-      sortLabel:
-        c.kind && c.kind !== "blue" && c.value !== undefined
-          ? `sort ${c.value}`
-          : undefined,
+      sortLabel: c.sortLabel,
       restored: c.restored,
       clue:
         c.owner !== "sam" && c.value !== undefined
@@ -85,6 +87,10 @@ export function createEngineAdapter(
     const messages = s.history
       .filter(
         (e) =>
+          e.type === "STARTING_INFORMATION" ||
+          e.type === "POWER_ACTIVATED" ||
+          e.type === "EQUIPMENT_UNLOCKED" ||
+          e.type === "EQUIPMENT_USED" ||
           e.type === "CLUE_SHARED" ||
           e.type === "CONNECTION_FAILED" ||
           e.type === "CONNECTION_SUCCESS" ||
@@ -102,7 +108,48 @@ export function createEngineAdapter(
       hint: "Sam’s Hint",
     };
     const hint = s.history.filter((e) => e.type === "HINT_GENERATED").at(-1);
+    const active = s.status === "playing" && s.phase === "turns";
+    const ownOptions = s.circuits.filter(c => c.owner === "sam" && !c.restored && c.kind !== "red")
+      .map(c => ({id: c.id, label: `${label(c.id)} · ${c.sortLabel ?? c.value}`}));
+    const targets = (ids: string[], count: number) => ({id: "targets", label: "Hidden crew circuit", count,
+      sameGroup: count === 2,
+      options: ids.map(id => ({id, label: label(id), group: s.circuits.find(c => c.id === id)!.owner}))});
+    const ownTarget = {id: "own", label: "Sam circuit", count: 1, options: ownOptions};
+    const equipmentNames = {scanner: "Pulse Probe", shield: "Hull Buffer", hint: "Logic Relay", dualScanner: "Twin Probe"};
+    const red = s.revealRedActions.find(a => a.participant === "sam");
     return {
+      crewFeatures: {
+        captainId: s.captain,
+        actionToken: s.toolToken,
+        crew: s.participants.map(p => {
+          const card = s.characterCards.find(c => c.participant === p.id)!;
+          return {id: p.id, name: p.name, power: {
+            id: `power:${p.id}`, name: card.name, description: card.description,
+            requirements: card.requirements.join(" · "), available: card.state === "ready",
+            remaining: card.remainingUses, used: card.state === "used",
+            reason: card.state === "locked" ? "Requires the active crewmate’s turn and legal targets." : undefined,
+            targets: p.id === "sam" ? [ownTarget, targets(card.validTargetIds, 2)] : [],
+          }};
+        }),
+        equipment: s.equipment.map(item => ({
+          id: item.id, name: equipmentNames[item.toolId], description: item.description,
+          requirements: item.timing === "anytime" ? "Any turn after setup. Unlock: two resolved blue copies." : "Sam’s active turn; two hidden circuits in one teammate hand.",
+          available: item.available, remaining: item.remainingUses, used: item.state === "used",
+          unlockNumber: item.unlockNumber, resolved: item.resolvedCopies, total: 2, status: item.state,
+          reason: item.available ? undefined : item.state === "locked" ? "Resolve two blue copies of the unlock number." : item.state === "used" ? "Already used this mission." : "Unavailable in the current state.",
+          targets: item.toolId === "scanner" ? [targets(item.validTargetIds, 1), {id: "threshold", label: "Threshold", count: 1,
+            options: Array.from({length: s.distribution.max - s.distribution.min + 1}, (_, i) => ({id: String(s.distribution.min + i), label: String(s.distribution.min + i)}))}]
+            : item.toolId === "dualScanner" ? [ownTarget, targets(item.validTargetIds, 2)] : [],
+        })),
+        startingInformation: {pending: s.phase === "startingInformation", description: s.startingInformationChoices.length ? "Choose one blue circuit to make public before the Captain starts." : "Waiting for the crew’s starting information.",
+          availableIds: s.startingInformationChoices,
+          markers: s.startingInformation.map(m => ({circuitId: m.circuitId, label: `Starting information: ${m.participant}, number ${m.value}`})),
+        },
+        isolateOverload: {id: "isolate", name: "Isolate Overload", description: "Safely reveal and power down all remaining red circuits in Sam’s hand. This uses your turn.",
+          requirements: red?.explanation ?? "Requires an eligible red hand.", available: active && s.currentParticipant === "sam" && !!red?.eligible,
+          reason: red?.explanation, remaining: red?.circuitIds.length ?? 0, used: false,
+          affectedSlots: red?.circuitIds.map(label), targets: [],},
+      },
       missionName: s.mission.name,
       tracker: {
         numbers: (s.numberTracker ?? []).map((n) => ({
@@ -198,7 +245,7 @@ export function createEngineAdapter(
       board: {
         ordered: true,
         turn: s.currentParticipant,
-        phase: s.currentParticipant === "sam" ? "selecting" : "thinking",
+        phase: s.phase === "startingInformation" ? "setup" : s.currentParticipant === "sam" ? "selecting" : "thinking",
         turnNumber: s.turnNumber,
       },
       ownCircuits: s.circuits
@@ -229,6 +276,8 @@ export function createEngineAdapter(
       history: s.history.map((e) => ({ id: e.index, text: text(e) })),
       effects: s.history
         .flatMap<NonNullable<MissionView["effects"]>[number]>((e) => {
+          if (e.type === "POWER_ACTIVATED")
+            return [{ id: e.index, kind: "power", slotIds: e.circuitIds, participant: e.participant }];
           if (e.type === "RED_SAFELY_RESOLVED")
             return [{ id: e.index, kind: "isolate", slotIds: e.circuitIds }];
           if (e.type === "RED_TRIGGERED")
@@ -300,14 +349,14 @@ export function createEngineAdapter(
     if (timer) clearInterval(timer);
     timer = undefined;
     aiDue = Infinity;
-    scheduledTurn = -1;
+    scheduledTurn = "";
   };
   const publish = () => {
     const state = engine.getGameState();
     snapshot = map(state);
     if (state.status !== "playing") stop();
-    else if (timer && state.turnNumber !== scheduledTurn) {
-      scheduledTurn = state.turnNumber;
+    else if (timer && `${state.phase}:${state.turnNumber}` !== scheduledTurn) {
+      scheduledTurn = `${state.phase}:${state.turnNumber}`;
       aiDue =
         state.currentParticipant === "sam"
           ? Infinity
@@ -317,7 +366,7 @@ export function createEngineAdapter(
   };
   const syncClock = () => {
     const now = performance.now();
-    if (timer) engine.advanceTime(Math.max(0, now - last));
+    if (timer && engine.getGameState().phase === "turns") engine.advanceTime(Math.max(0, now - last));
     last = now;
   };
   const run = (action: () => void) => {
@@ -332,6 +381,24 @@ export function createEngineAdapter(
   };
   return {
     getSnapshot: () => snapshot,
+    setInteractionPending: (pending) => {
+      if (interactionPending && !pending && Number.isFinite(aiDue)) aiDue = performance.now() + 1300;
+      interactionPending = pending;
+    },
+    selectStartingInformation: (id) => run(() => {
+      engine.chooseStartingInformation(id);
+      while (engine.getGameState().phase === "startingInformation") engine.advanceAI();
+    }),
+    performCrewAction: (id, choices, token) => run(() => {
+      const s = engine.getGameState();
+      const ownId = choices.own?.[0];
+      const number = s.circuits.find(c => c.id === ownId)?.value;
+      if (id === "power:sam") engine.useCharacterPower(ownId!, choices.targets[0], choices.targets[1], number!, token);
+      else if (id === "isolate") {
+        if (token !== s.toolToken) throw new Error("Action request is stale");
+        engine.resolveRedSafely(s.revealRedActions.find(a => a.participant === "sam")!.circuitIds[0]);
+      } else engine.useEquipment(id, {token, ownId, number, targets: choices.targets, threshold: choices.threshold ? Number(choices.threshold[0]) : undefined});
+    }),
     subscribe: (fn) => {
       listeners.add(fn);
       return () => {
@@ -390,11 +457,14 @@ export function createEngineAdapter(
     chooseMission: (id) => {
       stop();
       feedback = null;
-      engine.startMission(id, "easy", seed, tuning, {
+      const settings = {
         scanner: { uses: 1, unlocked: false },
         dualScanner: { uses: 1, unlocked: false },
         ...toolSettings,
-      });
+      };
+      if (!missionChosen) engine = new GameEngine(id, "easy", seed, tuning, settings, options);
+      else engine.startMission(id, "easy", seed, tuning, settings);
+      missionChosen = true;
       duration = engine.getGameState().remainingMs;
       publish();
     },
@@ -411,12 +481,18 @@ export function createEngineAdapter(
     },
     activate: () => {
       if (timer || snapshot.status !== "playing") return;
+      missionChosen = true;
+      if (engine.getGameState().phase === "startingInformation" && !engine.getGameState().startingInformationChoices.length) {
+        while (engine.getGameState().phase === "startingInformation") engine.advanceAI();
+      }
       last = performance.now();
-      scheduledTurn = -1;
+      scheduledTurn = "";
       timer = setInterval(() => {
         syncClock();
         if (
+          !interactionPending &&
           engine.getGameState().status === "playing" &&
+          engine.getGameState().phase === "turns" &&
           engine.getGameState().currentParticipant !== "sam" &&
           performance.now() >= aiDue
         ) {

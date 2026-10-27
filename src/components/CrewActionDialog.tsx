@@ -23,7 +23,8 @@ export function CrewActionDialog({
   const ready = action.targets.every(
     (t) =>
       (choices[t.id] ?? []).filter(Boolean).length === t.count &&
-      new Set(choices[t.id]).size === t.count,
+      new Set(choices[t.id]).size === t.count &&
+      (!t.sameGroup || new Set((choices[t.id] ?? []).map(id => t.options.find(o => o.id === id)?.group)).size === 1),
   );
   return (
     <ConfirmationDialog
@@ -68,6 +69,7 @@ export function CrewActionDialog({
           ))}
         </fieldset>
       ))}
+      {action.affectedSlots && <p>Circuits to isolate: {action.affectedSlots.join(", ")}</p>}
       {action.reason && <p>{action.reason}</p>}
     </ConfirmationDialog>
   );

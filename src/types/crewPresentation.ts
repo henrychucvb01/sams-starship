@@ -1,10 +1,11 @@
-/** Presentation-only handoff. Every option and availability flag must come from public engine state. */
-export type ActionOption = { id: string; label: string };
+/** Redacted presentation model projected by engineAdapter from authoritative public engine state. */
+export type ActionOption = { id: string; label: string; group?: string };
 export type ActionTarget = {
   id: string;
   label: string;
   options: ActionOption[];
   count: number;
+  sameGroup?: boolean;
 };
 export type CrewActionView = {
   id: string;
@@ -16,6 +17,7 @@ export type CrewActionView = {
   remaining: number;
   used: boolean;
   targets: ActionTarget[];
+  affectedSlots?: string[];
 };
 export type CrewCardView = {
   id: string;

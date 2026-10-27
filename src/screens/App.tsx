@@ -95,8 +95,8 @@ export function App({
       returnFocus.current?.focus();
     }
   }, [overlay]);
-  function start() {
-    adapter.restart();
+  function start(replay = false) {
+    if (replay) adapter.restart();
     adapter.activate();
     setScreen("game");
   }
@@ -319,10 +319,10 @@ export function App({
                 every other circuit has been cleared.
               </p>
             )}
-            <button className="primary" onClick={start}>
+            <button className="primary" onClick={() => start()}>
               Begin Mission <span>→</span>
             </button>
-            <button className="text-button help-link" onClick={start}>
+            <button className="text-button help-link" onClick={() => start()}>
               Skip introduction
             </button>
           </section>
@@ -382,7 +382,7 @@ export function App({
                 <span>Mission time</span>
               </div>
             </div>
-            <button className="primary" onClick={start}>
+            <button className="primary" onClick={() => start(true)}>
               {state.status === "victory" ? "Play Again" : "Try Again"}{" "}
               <span>↻</span>
             </button>
@@ -462,15 +462,20 @@ export function App({
                 <li>
                   Share one of Sam’s numbers for one energy and a turn. Sam’s
                   Toolkit offers a limited Hint and a one-hit Emergency Shield;
-                  each has its own finite charge. Scanners unlock in later
-                  missions.
+                  each has its own finite charge. Shared equipment is separate:
+                  resolve two blue copies of its unlock number to make a card
+                  ready, then confirm its one use. Pulse Probe, Hull Buffer and
+                  Logic Relay can be used on any turn.
                 </li>
                 <li>
                   For Self-Match, select two equal tiles in Sam’s row and press
                   Connect Pair. The engine allows this only when Sam holds every
                   remaining copy; if four remain, all four clear together.
-                  Review mistakes and tool clues in the deduction log, or pass
-                  your turn.
+                  Twin Signal is a separate once-per-mission character power:
+                  choose one of Sam’s non-red circuits and two hidden circuits
+                  in the same crewmate’s row. If either matches, one pair clears.
+                  One red target is safe with this power; two cause overload.
+                  Review mistakes and clues in the deduction log, or pass your turn.
                 </li>
                 <li>
                   Restore the mission’s circuits before time or hull runs out.
@@ -481,7 +486,9 @@ export function App({
                 The number register tracks blue copies automatically. In special
                 training, yellow circuits match each other regardless of sorting
                 key. Red circuits carry a danger symbol and can end the mission
-                immediately. Hidden colors stay concealed until revealed.
+                immediately. Isolate Overload is safe only when all of Sam’s
+                remaining circuits are red; the engine enables that action.
+                Hidden colors stay concealed until revealed.
               </p>
               <p className="muted">
                 Number sequence missions are coming later. Each mission uses one

@@ -31,7 +31,9 @@ export function ConnectionOverlay({
             : "⌁"}
       </span>
       <span>
-        {scene.outcome === "isolate"
+        {scene.outcome === "power"
+          ? "TWIN SIGNAL ACTIVATED"
+          : scene.outcome === "isolate"
           ? "OVERLOAD SAFELY ISOLATED"
           : scene.outcome === "success"
             ? "TERMINAL CONNECTED"

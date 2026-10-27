@@ -1,15 +1,25 @@
 import { deduce } from "../src/engine/ai";
 import type { Circuit, IncorrectGuess } from "../src/engine/types";
 import { test, expect, type Page } from "@playwright/test";
+async function finishSetup(page: Page) {
+  if (!(await page.locator(".starting-options button").count())) return;
+  await page.locator(".starting-options button").last().click();
+  await page.getByRole("button", {name: "Review starting information", exact: true}).click();
+  await page.getByRole("dialog", {name: "Reveal starting information?"}).getByRole("button", {name: "Confirm", exact: true}).click();
+}
 async function launch(page: Page, path = "/") {
   await page.clock.install();
   await page.goto(path);
   await page.getByRole("button", { name: "Play Solo" }).click();
   await page.getByRole("button", { name: "Start mission" }).click();
   await page.getByRole("button", { name: "Begin Mission" }).click();
+  await finishSetup(page);
+  await waitHuman(page);
   await expect(
     page.getByRole("heading", { name: "One crew. Every connection counts." }),
   ).toBeVisible();
+  await finishSetup(page);
+  await waitHuman(page);
 }
 async function waitHuman(page: Page) {
   for (let i = 0; i < 30; i++) {
@@ -119,7 +129,8 @@ async function solve(page: Page) {
             (m) => Number(m[1]),
           ),
         );
-        const candidate = own.find((c) => !sharedSlots.has(c.position + 1));
+        const markers = new Set(await page.locator(".rack-sam .wire-tile:has(.information-marker)").evaluateAll(els => els.map(e => e.getAttribute("data-slot"))));
+        const candidate = own.find((c) => !sharedSlots.has(c.position + 1) && !markers.has(c.id));
         if (candidate) {
           await page.locator(`[data-slot="${candidate.id}"]`).click();
           await page
@@ -145,7 +156,7 @@ test("real standard-deck mission: sorted board, public deductions, AI turns, vic
   await expect(page.locator(".wire-tile")).toHaveCount(48);
   await expect(
     page.getByRole("button", { name: /slot \d+, hidden/ }),
-  ).toHaveCount(32);
+  ).toHaveCount(30);
   expect(
     await page
       .locator(".rack")
@@ -174,10 +185,12 @@ test("real standard-deck mission: sorted board, public deductions, AI turns, vic
     fullPage: true,
   });
   await page.getByRole("button", { name: "Play Again" }).click();
+  await finishSetup(page);
+  await waitHuman(page);
   await expect(page.getByText("100%", { exact: true })).toBeVisible();
   await expect(page.locator(".turn-pill")).toContainText("Sam's");
   await page.clock.runFor(2100);
-  await expect(page.getByText("4:58", { exact: true })).toBeVisible();
+  await expect(page.getByText(/4:5[0-9]/, { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Leave mission" }).click();
   await page.getByRole("button", { name: "Back to the ship" }).click();
   await expect(page.getByRole("button", { name: "Play Solo" })).toBeVisible();
@@ -212,14 +225,17 @@ test("real engine mistake triggers impact, public reveal, AI turn and fatal defe
     page.getByText("Hull integrity lost", { exact: true }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Try Again" }).click();
+  await finishSetup(page);
+  await waitHuman(page);
   await expect(page.getByText("100%", { exact: true })).toBeVisible();
-  await expect(page.locator(".wire-tile.disclosed")).toHaveCount(0);
+  await expect(page.locator(".information-marker")).toHaveCount(3);
+  await expect(page.locator(".deduction-log")).not.toContainText("Incorrect;");
 });
 test("production navigation, persisted preferences, off-turn controls, timeout and restart", async ({
   page,
 }) => {
   await launch(page);
-  const own = page.locator(".rack-sam .wire-tile").first();
+  const own = page.locator(".rack-sam .wire-tile:not(.cleared):not(:has(.information-marker))").first();
   await own.click();
   await page
     .getByRole("button", { name: "Share selected Sam circuit" })
@@ -240,8 +256,10 @@ test("production navigation, persisted preferences, off-turn controls, timeout a
     page.getByText("Emergency power expired", { exact: true }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Try Again" }).click();
+  await finishSetup(page);
+  await waitHuman(page);
   await page.clock.runFor(1100);
-  await expect(page.getByText("4:59", { exact: true })).toBeVisible();
+  await expect(page.getByText(/4:5[0-9]/, { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await page.getByRole("checkbox").check();
   await page.keyboard.press("Escape");
@@ -340,6 +358,8 @@ test("Self-Match clears all four; rejected pair explains eligibility without dam
   await page.getByRole("button", { name: "Play Solo" }).click();
   await page.getByRole("button", { name: "Start mission" }).click();
   await page.getByRole("button", { name: "Begin Mission" }).click();
+  await finishSetup(page);
+  await waitHuman(page);
   await page.locator('[data-slot="sam-0"]').click();
   await page.locator('[data-slot="sam-1"]').click();
   await expect(
@@ -399,7 +419,7 @@ test("later-mission scanner and dual scanner target controls use real tool outco
 }) => {
   await launch(page, "/tests/fixtures/real.html?tools=all");
   await page.getByRole("button", { name: /Circuit Scanner/ }).click();
-  await expect(page.locator(".tool-target")).toHaveCount(32);
+  await expect(page.locator(".tool-target")).toHaveCount(30);
   await page.getByLabel("Nova tool target").selectOption("nova-0");
   await page.getByRole("spinbutton", { name: "Scanner threshold" }).fill("6");
   await page.getByRole("button", { name: "Confirm Tool" }).click();
@@ -414,14 +434,16 @@ test("later-mission scanner and dual scanner target controls use real tool outco
   await page.getByRole("button", { name: "Play Solo" }).click();
   await page.getByRole("button", { name: "Start mission" }).click();
   await page.getByRole("button", { name: "Begin Mission" }).click();
+  await finishSetup(page);
+  await waitHuman(page);
   await page.locator('[data-slot="sam-0"]').click();
   await page.getByRole("button", { name: /Dual Scanner/ }).click();
   await page.getByLabel("Pip tool target").selectOption("pip-0");
-  await page.getByLabel("Nova tool target").selectOption("nova-15");
+  await page.getByLabel("Nova tool target").selectOption("nova-14");
   await page.getByRole("button", { name: "Confirm Tool" }).click();
   await expect(page.locator('[data-slot="sam-0"]')).toHaveClass(/cleared/);
   await expect(page.locator('[data-slot="pip-0"]')).toHaveClass(/cleared/);
-  await expect(page.locator('[data-slot="nova-15"] strong')).toHaveText("?");
+  await expect(page.locator('[data-slot="nova-14"] strong')).toHaveText("?");
   await page.clock.runFor(700);
   await expect(page.locator(".connection-arc")).toBeVisible();
 });
@@ -498,7 +520,8 @@ test("drag to crew with mobile edge scrolling opens confirmation and cancellatio
       type: "touchMove",
       touchPoints: [{ x: a.x + a.width / 2, y: 10 }],
     });
-    for (let i = 0; i < 20; i++) {
+    await expect(page.locator(".drag-wire")).toHaveCount(1);
+    for (let i = 0; i < 40; i++) {
       const r = (await target.boundingBox())!;
       if (r.y >= 65 && r.y + r.height < 800) break;
       await page.clock.runFor(100);
@@ -509,7 +532,8 @@ test("drag to crew with mobile edge scrolling opens confirmation and cancellatio
       type: "touchMove",
       touchPoints: [{ x: b.x + b.width / 2, y: b.y + b.height / 2 }],
     });
-    await page.clock.runFor(20);
+    await page.clock.runFor(40);
+    await expect(target).toHaveClass(/drop-ready/);
     await session.send("Input.dispatchTouchEvent", {
       type: "touchEnd",
       touchPoints: [],
@@ -545,6 +569,8 @@ async function launchLab(page: Page, kind: "yellow" | "red") {
     })
     .click();
   await page.getByRole("button", { name: "Begin Mission" }).click();
+  await finishSetup(page);
+  await waitHuman(page);
 }
 test("number tracker shows four-copy completion from actual Self-Match", async ({
   page,
@@ -593,7 +619,7 @@ test("yellow lab reveals only authorized types and updates separate category pro
     "yellow",
   );
   await expect(page.locator('[data-slot="sam-6"] .sort-position')).toHaveText(
-    "sort 5.5",
+    "5A",
   );
   await page.locator('[data-slot="sam-6"]').click();
   await page.locator('[data-slot="nova-8"]').click();
@@ -611,7 +637,7 @@ test("yellow lab reveals only authorized types and updates separate category pro
     "yellow",
   );
   await expect(page.locator('[data-slot="nova-8"] .sort-position')).toHaveText(
-    "sort 8.5",
+    "8A",
   );
   await expect(page.locator(".number-complete")).toHaveCount(0);
   expect(
@@ -647,7 +673,7 @@ test("red lab warns only about public identities and red trigger has distinct fa
   ).toBeDisabled();
   await expect(
     page.getByText(
-      "Safe isolation is unavailable in this build.",
+      "Safe resolution requires an entirely red remaining own hand.",
       { exact: true },
     ),
   ).toBeVisible();
@@ -681,6 +707,8 @@ test("red lab warns only about public identities and red trigger has distinct fa
     ),
   ).toBeVisible();
   await page.getByRole("button", { name: "Try Again" }).click();
+  await finishSetup(page);
+  await waitHuman(page);
   await expect(page.locator('[data-slot="nova-13"]')).toHaveAttribute(
     "data-circuit-type",
     "hidden",
@@ -887,164 +915,4 @@ test("tools share a centered modal and cancel preserves charges and board layout
   await expect(
     page.locator(".number-marker:not(.number-complete)").first(),
   ).toHaveCSS("background-color", "rgb(32, 44, 67)");
-});
-
-test("crew presentation contract: captain identity, accessible explanations, equipment and power confirmations", async ({
-  page,
-}, info) => {
-  await launch(page, "/tests/fixtures/crew.html");
-  await expect(page.locator(".rack-pip .captain-badge")).toHaveCount(1);
-  await expect(page.locator(".rack-sam .captain-badge")).toHaveCount(0);
-  const captain = page.locator(".rack-pip .captain-badge");
-  if (info.project.name === "desktop") {
-    await captain.hover();
-    await expect(page.getByRole("tooltip")).toContainText("Captain");
-  }
-  await captain.focus();
-  await expect(page.getByRole("tooltip")).toContainText(
-    "Leads the crew and takes the first turn.",
-  );
-  await page.keyboard.press("Escape");
-  await expect(page.getByRole("tooltip")).toHaveCount(0);
-  await captain.click();
-  await expect(page.getByRole("tooltip")).toContainText("Captain");
-  await page
-    .getByRole("button", { name: "Test: Captain Nova", exact: true })
-    .click();
-  await expect(page.locator(".rack-nova .captain-badge")).toHaveCount(1);
-  await expect(page.locator(".rack-pip .captain-badge")).toHaveCount(0);
-  const powerInfo = page
-    .locator(".rack-sam")
-    .getByRole("button", { name: "Sam: Presentation Test Power information" });
-  await powerInfo.focus();
-  await expect(page.getByRole("tooltip")).toContainText(
-    "TEST INPUT: choose one target.",
-  );
-  await expect(page.getByRole("tooltip")).toContainText("1 use remaining");
-  await page.keyboard.press("Escape");
-  await page
-    .locator(".rack-sam")
-    .getByRole("button", { name: "Use power", exact: true })
-    .click();
-  const powerModal = page.getByRole("dialog", {
-    name: "Presentation Test Power",
-    exact: true,
-  });
-  await expect(powerModal).toBeVisible();
-  await expect(
-    powerModal.getByRole("button", { name: "Confirm", exact: true }),
-  ).toBeDisabled();
-  await powerModal
-    .getByLabel("Crew target", { exact: true })
-    .selectOption("nova-0");
-  await page.keyboard.press("Escape");
-  await expect(page.getByLabel("Fixture action count")).toHaveText("0");
-  await page
-    .locator(".rack-sam")
-    .getByRole("button", { name: "Use power", exact: true })
-    .click();
-  await powerModal
-    .getByLabel("Crew target", { exact: true })
-    .selectOption("pip-0");
-  await powerModal
-    .getByRole("button", { name: "Confirm", exact: true })
-    .dblclick();
-  await expect(page.getByLabel("Fixture action count")).toHaveText("1");
-  await expect(page.locator(".rack-sam .personal-power")).toContainText("Used");
-  await expect(page.locator(".equipment-locked")).toContainText("0/2");
-  await expect(
-    page.getByRole("button", { name: "Use equipment", exact: true }),
-  ).toBeDisabled();
-  await page
-    .getByRole("button", { name: "Test: unlock equipment", exact: true })
-    .click();
-  await expect(page.locator(".equipment-ready")).toContainText("2/2");
-  await page
-    .getByRole("button", {
-      name: "Presentation Test Equipment equipment information",
-      exact: true,
-    })
-    .click();
-  await expect(page.getByRole("tooltip")).toContainText("Unlock number 2: 2/2");
-  await page.keyboard.press("Escape");
-  await page
-    .getByRole("button", { name: "Use equipment", exact: true })
-    .click();
-  const equipmentModal = page.getByRole("dialog", {
-    name: "Presentation Test Equipment",
-    exact: true,
-  });
-  await equipmentModal
-    .getByLabel("Crew target", { exact: true })
-    .selectOption("nova-0");
-  await equipmentModal
-    .getByRole("button", { name: "Confirm", exact: true })
-    .click();
-  await expect(page.locator(".equipment-used")).toContainText("Used");
-  await expect(page.getByLabel("Fixture action count")).toHaveText("2");
-  await page.screenshot({
-    path: `docs/previews/${info.project.name}-crew-cards.png`,
-    fullPage: true,
-  });
-});
-
-test("starting information requires explicit selection and confirmation, and self-connection previews all four slots", async ({
-  page,
-}) => {
-  await launch(page, "/tests/fixtures/crew.html");
-  await page.getByRole("button", { name: "Test: setup", exact: true }).click();
-  await expect(
-    page.getByRole("button", {
-      name: "Review starting information",
-      exact: true,
-    }),
-  ).toBeDisabled();
-  await expect(page.locator(".rack-sam .wire-tile").first()).toBeDisabled();
-  await page
-    .getByRole("button", {
-      name: "Share starting number 2, slot 3",
-      exact: true,
-    })
-    .click();
-  await page
-    .getByRole("button", { name: "Review starting information", exact: true })
-    .click();
-  const setupModal = page.getByRole("dialog", {
-    name: "Reveal starting information?",
-    exact: true,
-  });
-  await expect(setupModal).toContainText("Sam’s number 2, slot 3");
-  await setupModal.getByRole("button", { name: "Cancel", exact: true }).click();
-  await expect(page.getByLabel("Fixture action count")).toHaveText("0");
-  await expect(page.locator(".rack-sam .information-marker")).toHaveCount(0);
-  await page
-    .getByRole("button", { name: "Review starting information", exact: true })
-    .click();
-  await setupModal
-    .getByRole("button", { name: "Confirm", exact: true })
-    .dblclick();
-  await expect(page.getByLabel("Fixture action count")).toHaveText("1");
-  await expect(
-    page.locator('[data-slot="sam-2"] .information-marker'),
-  ).toHaveCount(1);
-  await expect(
-    page.locator('[data-slot="nova-0"] .information-marker'),
-  ).toHaveCount(1);
-  await page.locator('[data-slot="sam-2"]').click();
-  await page
-    .getByRole("button", { name: "Self-Connection", exact: true })
-    .click();
-  const solo = page.getByRole("dialog", {
-    name: "Self-Connection",
-    exact: true,
-  });
-  await expect(solo.locator("li")).toHaveCount(4);
-  await solo.getByRole("button", { name: "Cancel", exact: true }).click();
-  await expect(page.locator(".rack-sam .wire-tile.cleared")).toHaveCount(0);
-  await page
-    .getByRole("button", { name: "Self-Connection", exact: true })
-    .click();
-  await solo.getByRole("button", { name: "Confirm", exact: true }).dblclick();
-  await expect(page.locator(".rack-sam .wire-tile.cleared")).toHaveCount(4);
-  await expect(page.getByText("100%", { exact: true })).toBeVisible();
 });

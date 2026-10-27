@@ -66,7 +66,7 @@ export type MissionView = {
   board?: {
     ordered: boolean;
     turn: "sam" | "nova" | "pip" | null;
-    phase: "selecting" | "thinking" | "connecting" | null;
+    phase: "setup" | "selecting" | "thinking" | "connecting" | null;
     note?: string;
     turnNumber?: number;
   };
@@ -81,7 +81,8 @@ export type MissionView = {
       | "blocked"
       | "hint"
       | "critical"
-      | "isolate";
+      | "isolate"
+      | "power";
     slotIds: string[];
     participant?: "sam" | "nova" | "pip";
   }[];
@@ -103,6 +104,7 @@ export type MissionView = {
   };
 };
 export interface MissionAdapter {
+  setInteractionPending?: (pending: boolean) => void;
   performCrewAction?: (
     id: string,
     choices: Record<string, string[]>,

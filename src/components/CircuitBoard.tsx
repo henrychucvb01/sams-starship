@@ -93,6 +93,8 @@ export function CircuitBoard({
   } | null>(null);
   const suppressClick = useRef(false);
   const [crewAction, setCrewAction] = useState<CrewActionView | null>(null);
+  const [crewToken, setCrewToken] = useState("");
+  const openCrewAction = (action: CrewActionView) => {setCrewToken(state.crewFeatures?.actionToken ?? "");setCrewAction(action);};
   const [utility, setUtility] = useState<"solo" | null>(null);
   const [dragNotice, setDragNotice] = useState("");
   const [own, setOwn] = useState("");
@@ -139,6 +141,10 @@ export function CircuitBoard({
     }
     previous.current = state.event.id;
   }, [state.event.id]);
+  useEffect(() => {
+    adapter.setInteractionPending?.(!!crewAction || declaring || !!selectedTool || !!utility);
+    return () => adapter.setInteractionPending?.(false);
+  }, [adapter, crewAction, declaring, selectedTool, utility]);
   const effect = useEffects(state.effects ?? [], reset);
   const boardRef = useRef<HTMLDivElement>(null);
   const [arc, setArc] = useState({ path: "", width: 1, height: 1 });
@@ -394,7 +400,7 @@ export function CircuitBoard({
           : state.hull <= 75
             ? "minor"
             : "normal";
-  const turnText = turn
+  const turnText = state.board?.phase === "setup" ? "Starting information · choose a blue circuit" : turn
     ? `${turn === "sam" ? "Sam's" : turn === "nova" ? "Nova's" : "Pip's"} turn${state.board?.phase === "thinking" ? " · thinking" : state.board?.phase === "connecting" ? " · connecting" : ""}`
     : "Turn flow pending engine update";
   function tile(
@@ -417,6 +423,7 @@ export function CircuitBoard({
     const exact =
       slot.clue && slot.clue.min === slot.clue.max ? slot.clue.min : undefined;
     const shown = value ?? exact;
+
     const affected = effect?.slotIds.includes(slot.id);
     return (
       <button
@@ -522,7 +529,7 @@ export function CircuitBoard({
   }
   return (
     <section
-      className={`deduction-screen ${effect?.kind === "damage" || effect?.kind === "critical" ? "screen-impact" : ""}`}
+      className={`deduction-screen effect-${effect?.kind ?? "idle"} ${effect?.kind === "damage" || effect?.kind === "critical" ? "screen-impact" : ""}`}
     >
       <div className="board-heading">
         <div>
@@ -581,14 +588,14 @@ export function CircuitBoard({
           />
           <EquipmentCards
             equipment={state.crewFeatures?.equipment ?? []}
-            canAct={canAct && !!adapter.performCrewAction}
-            onAction={setCrewAction}
+            canAct={state.status === "playing" && !state.crewFeatures?.startingInformation?.pending && !!adapter.performCrewAction}
+            onAction={openCrewAction}
           />
           {crewAction && (
             <CrewActionDialog
               key={crewAction.id}
               action={crewAction}
-              token={state.crewFeatures?.actionToken ?? ""}
+              token={crewToken}
               onCancel={() => setCrewAction(null)}
               fallbackFocus={headingRef}
               onConfirm={async (id, choices, token) => {
@@ -664,7 +671,7 @@ export function CircuitBoard({
                       left
                     </>
                   }
-                  onAction={setCrewAction}
+                  onAction={openCrewAction}
                   canAct={false}
                 />
                 <div
@@ -723,7 +730,7 @@ export function CircuitBoard({
                     circuits left
                   </>
                 }
-                onAction={setCrewAction}
+                onAction={openCrewAction}
                 canAct={canAct && !!adapter.performCrewAction}
               />
               <div
@@ -1009,7 +1016,7 @@ export function CircuitBoard({
               }
               onClick={() => {
                 if (state.crewFeatures?.isolateOverload)
-                  setCrewAction(state.crewFeatures.isolateOverload);
+                  openCrewAction(state.crewFeatures.isolateOverload);
               }}
             >
               Isolate Overload

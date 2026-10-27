@@ -1,128 +1,113 @@
-# Revised circuit deduction engine — Agent 2 handoff
+# Sam's Starship gameplay API — Agent 1 handoff
 
-This correction supersedes the original matching rules in PHASE1_GAME_SPEC.md. No UI, adapter, package, or Vite configuration files changed in this correction. Agent 2 must update its adapter: this API intentionally changes the old free-action gameplay.
+The engine continues the existing cooperative deduction game. This update changes setup and adds shared equipment and character cards. Agent 2 owns presentation and adapter integration; this branch does not edit those files. Do not merge or deploy without review.
 
-## Status and verification
-
-Restore the Lights is playable through a pure TypeScript engine. Default deck: 1–12, four copies each, 48 tiles / 24 pair-equivalents, 16 sorted tiles per room. Three participants: Sam (human), Nova, Pip (AI). Slot IDs and zero-based positions stay fixed even after resolution; render resolved tiles as inactive anchors/gaps rather than renumbering the row. Duplicates are adjacent.
-
-Other matching mission definitions remain development content. Sequence missions are configuration placeholders and startMission rejects them. Their independent generator/validator is retained in puzzles.ts for future development. No simultaneous puzzle types, backend, paid AI, or multiplayer.
-
-Run `npm ci`, `npm test`, `npm run build` (Node 22.12+). Build checks strict TypeScript and emits the engine library. React presentation remains on Agent 2's branch.
-
-## Breaking API changes
-
-Import `GameEngine`, `MISSIONS`, `DIFFICULTIES`, and types from `src/engine/index.ts`.
-
-- `new GameEngine(missionId='lights', difficulty='easy', seed=1, overrides={})` / `startMission(...)`: start with Sam, turn 1. Full restart is atomic on invalid configuration. Tuning now uses `numberMin`, `numberMax`, `copies`, `hull`, `durationMs`, `damage`, `energy`, `rewardEnergy`, `deductionPasses`. Removed the old pairs/clueWidth/aiEvery/sequenceLength tuning fields. Copies must be even (2–12), range 1–99; standard defaults are four copies of 1–12. Same seed and settings replay identically.
-- `getGameState()`: detached player-visible snapshot. See types.ts for documented contracts. Own tiles show value; other tiles omit it unless publicly revealed by clue, mistake or resolution. No seed/answer board is returned. `possibilities` is now empty by default; logical assistance is available only through the charged Hint tool.
-- `selectCircuit(samCircuitId)`: selection only; no turn spent.
-- `attemptConnection(targetCircuitId, declaredNumber)`: declaration is REQUIRED and must equal the selected active Sam tile's number. UI flow: select own tile, choose an opponent tile, type a number, submit. Declaring a different number, missing arguments, wrong ownership, inactive tiles, or off-turn actions throw without changing gameplay. Valid correct and incorrect attempts both end the turn.
-- `requestHint(otherCircuitId, toolToken)`: legacy alias for the limited logical Hint tool; the target argument is ignored. Exact-answer target hints are removed. Prefer generateHint(toolToken).
-- `shareCircuit(ownCircuitId)`: spend one energy to publicly transmit ONE Sam number; end turn.
-- `resolveSolo(number)`: resolve all active Sam tiles of that number ONLY if they account for every remaining copy. Eligibility follows own inventory + public resolved counts; no information about hidden locations is returned on rejection. Successful solo action ends turn and emits CONNECTION_SUCCESS with all resolved IDs.
-- `passTurn()`: human may pass when no desired action is available.
-- `advanceAI()`: performs exactly ONE current AI turn, then returns. Throws on Sam's turn. Never run AI on every clock tick regardless of whose turn it is. Schedule the next AI only when status is playing and currentParticipant is not sam. Wait for visual effects if desired; engine contains no animation timers. Empty rooms are skipped automatically.
-- `advanceTime(actualElapsedMs)`: countdown; zero loses. Terminal state is frozen. UI owns performance.now() deltas, suspension reconciliation and interval cleanup.
-- `getEvents(afterIndex=-1)`: detached history strictly after cursor; index resets on restart. Reset the animation cursor on mission start/restart.
-- `restartMission()`: same seed/config, clean state and Sam turn 1. For a fresh board, call startMission with a new seed.
-
-All gameplay mutations return GameState. Catch errors to show validation feedback. Old submitSequence is unavailable until cooperative sequence gameplay is designed.
-
-## State / layout
-
-`participants`, `currentParticipant`, `turnNumber`, `circuits`, `publicReveals`, `incorrectGuesses`, `remainingCircuits`, `hull`, `maxHull`, `damageStage`, `energy`, `remainingMs`, `status` and `history` are authoritative. Render Nova/Pip sorted rows at top and Sam at bottom using position. Resolved tiles remain in circuits with restored=true and public value, but cannot be selected. restored/total use pair-equivalents: a four-tile solo resolution increases restored by 2. remainingCircuits counts tiles.
-
-Example shape before a reveal (abbreviated, not a complete fixture):
+## Setup and Captain
 
 ```ts
-{
- currentParticipant: 'sam', turnNumber: 1,
- distribution: { min: 1, max: 12, copies: 4 },
- circuits: [
-   { id: 'sam-0', owner: 'sam', position: 0, restored: false, value: 1 },
-   { id: 'nova-0', owner: 'nova', position: 0, restored: false }
- ],
- publicReveals: [], incorrectGuesses: [],
- hull: 100, maxHull: 100, damageStage: 'normal', status: 'playing'
-}
+new GameEngine(missionId, difficulty, seed, tuningOverrides, legacyToolSettings, options)
 ```
 
-## Animation contract
+All arguments are optional. Import types and `GameEngine` from `src/engine`.
 
-GameEvent is a discriminated union in types.ts; every event has index, turn and message. Correct/solo resolution emits CONNECTION_SUCCESS with participant, circuitIds and number. Wrong attempts emit CONNECTION_FAILED with participant, declaredNumber, targetCircuitId, revealedNumber and damage; then SHIP_ATTACK:
+`options: EngineOptions` accepts an injectable `random` function, an optional three-item shared `equipment` loadout, and per-character `powers` configuration. The only approved `powerId` is `doubleDetector`; unknown powers reject setup. An enabled/disabled override configures each character independently. Default: all three have Twin Signal. The shared loadout accepts implemented `ToolId`s with an integer `unlockNumber` in the blue range. Options are constructor configuration retained across subsequent missions.
+
+First Captain is selected using a pseudorandom draw from the mission seed (or injected random source). Production already generates the seed using crypto randomness. Every subsequent `startMission` or `restartMission` rotates to the next eligible crew member in Sam → Nova → Pip order. `Mission.captainEligible` may restrict the eligible set. Captain identity is `state.captain`, independent of `currentParticipant`. Captain starts turn 1 after setup and has no additional ability or access to hidden information.
+
+New missions begin with `phase: 'startingInformation'`. Normal actions reject during setup. `startingInformationChoices` contains only Sam's own blue circuit IDs. Call `chooseStartingInformation(id)` with the player's explicit choice. It spends neither energy nor a turn, cannot select yellow/red or teammates' circuits, and cannot be repeated. `startingInformation` retains `{participant,circuitId,value}` markers throughout the mission, including after resolution. Markers also appear in `publicReveals` with reason `startingInformation`.
+
+Each `advanceAI()` during setup places one pending AI marker, selecting the highest blue circuit from that AI's own observation. Setup AI calls work even when `currentParticipant` is Sam. After Sam chooses, run pending AI setup calls until `phase === 'turns'`. A participant with no blue circuit is exempt; do not invent a blue marker. Once all eligible participants have chosen, the Captain starts. Setup calls do not change turn number. Do not schedule ordinary AI turns until setup completes.
+
+## Redacted authoritative state
+
+`getGameState()` and all mutations return detached, player-visible snapshots. Hidden teammate circuits contain only ID, owner, position and restored flag. Own or publicly revealed circuits also have kind, numeric `value`, `sortLabel`, and `matchingIdentity`. No seed or answer board is exposed. Captain never changes visibility. AI receives its own `AIObservation`, not Sam's view or the private board.
+
+- `captain`, `phase`, `currentParticipant`, `turnNumber` identify setup and turn state.
+- `startingInformation`, `startingInformationChoices` drive setup controls.
+- `equipment` reports shared unlock progress, usage and availability.
+- `characterCards` reports each personal ability and usage separately.
+- `selfMatches` and `revealRedActions` report Sam's rule eligibility, including explanations. These are inventory eligibility; additionally gate actions by phase, mission status and active participant.
+- `numberTracker`, `specialTracker`, `remainingCircuits`, `status`, hull and clock are engine-owned. Never update counters in presentation code.
+- `tools`, `toolToken`, `shieldActive` and `scannerResults` retain legacy support contracts.
+
+All circuit IDs and positions remain fixed when resolved. Four-copy Solo Cut adds two to legacy pair-equivalent `restored`; each safely isolated red adds one half. Prefer trackers and remaining circuit counts for progress.
+
+## Normal actions
+
+`selectCircuit(ownId)` selects an unresolved Sam circuit without spending a turn. `attemptConnection(targetId, number)` validates that number equals the selected circuit's value, resolves a blue numeric match or yellow category match, or applies one ordinary mistake. Invalid declarations, ownership, restored targets and off-turn actions reject. Correct and incorrect attempts consume a turn. A direct red target always fails the mission immediately, regardless of shield or the legacy `redInstantFailure` flag.
+
+`selfMatch(firstOwnId, secondOwnId)` and `resolveSolo(number)` resolve all remaining copies of a matching identity only if exactly two or four remain and all belong to Sam. They explicitly verify that no teammate holds an unresolved matching circuit. Yellow copies match as a category despite different sort keys. Red cannot Solo Cut. Success consumes one turn, updates trackers and equipment, and emits the existing success aliases. Invalid Self-Match emits `SELF_MATCH_INVALID` without spending a turn or hull.
+
+`resolveRedSafely(ownRedId)` checks that every unresolved circuit in the active player's own hand is red, then reveals and resolves ALL those red circuits together and consumes one turn. Teammates may still hold blue/yellow circuits. `revealRedActions[0]` lists Sam's red IDs and eligibility. The existing mission safe-rule enable/disable setting is respected. AI uses the same own-hand condition.
+
+`shareCircuit(ownId)` remains the separate paid disclosure action: one energy and one turn. `passTurn()` spends a turn. `advanceAI()` performs one conservative AI turn after setup, skipping empty hands. `advanceTime(elapsedMs)` applies actual elapsed time; zero ends the mission. `restartMission()` resets equipment, powers, markers and resources with the same board seed, and rotates Captain. Sequence missions remain unavailable.
+
+## Shared equipment
+
+Exactly three items are assigned for three participants. They are shared, not owned by the participant whose index provided a slot. Each begins locked, unlocks when TWO blue copies of its associated number resolve (including four-copy Solo Cut), and exhausts after one use. Yellow resolution never unlocks blue-number equipment. Unlock progress comes from the engine board; equipment does not regenerate.
+
+Default original abilities:
+
+| ID | Ability | Unlock | Timing and effect |
+| --- | --- | --- | --- |
+| equipment-0 | Pulse Probe (`scanner`) | Blue 1 | Any turn: public below/equal/above comparison of one hidden teammate circuit to an integer threshold. Does not reveal identity or spend a turn. |
+| equipment-1 | Hull Buffer (`shield`) | Blue 2 | Any turn: block the next ordinary mistake's damage. No stacking; does not prevent catastrophic overload. Does not spend a turn. |
+| equipment-2 | Logic Relay (`hint`) | Blue 3 | Any turn: deduction from Sam's visible information and public facts only. May report no narrower deduction. Does not spend a turn. |
+| Configurable loadout | Twin Probe (`dualScanner`) | Configured blue number | Active Sam turn: same two-target resolution rules as Twin Signal, spending one turn and the shared item, independently of Sam's personal power. |
+
+Custom ranges shift default unlocks to the first three configured blue numbers, wrapping for ranges shorter than three.
+
+Each `EquipmentAvailability` contains `id`, `toolId`, `unlockNumber`, `resolvedCopies`, `state: locked|ready|used`, `available`, `remainingUses`, `validTargetIds`, `description`, and `timing`. Display engine availability and send:
 
 ```ts
-{ type: 'SHIP_ATTACK', source: 'incorrect_connection',
- damage: 15, hullBefore: 100, hullAfter: 85,
- targetCircuitId: 'nova-4', revealedNumber: 5, severity: 'light',
- index: 2, turn: 1, message: 'Enemy impact' }
+engine.useEquipment(id, {
+  token: renderedState.toolToken,
+  targets: [hiddenCircuitId], // scanner; two IDs for Twin Probe
+  threshold: 6,             // scanner only
+  ownId, number,            // Twin Probe only
+});
 ```
 
-Animate projectile → impact/shake/sparks → hull change using these values, once per index. Failure event and attack event describe the same damage; do not apply it twice. The engine already applied hull changes; visual interpolation is presentation only. Lethal attack is followed by LOST with no new turn. No unsuccessful connection is marked restored.
+A valid use immediately exhausts the item and invalidates the request token. Invalid commands leave state unchanged. Any-turn equipment works while an AI is active, using Sam's redacted observation. The default loadout is original Sam's Starship content, not a claim to reproduce proprietary Equipment cards.
 
-Damage stage uses hull percentage: >75 normal, >50 light, >25 moderate, >0 critical, zero destroyed. Attack severity is critical at <=25%, medium at <=50%, otherwise light. Damage reports actual loss clamped at zero, not an overkill penalty.
+## Personal character cards
 
-## AI reasoning and secrecy
+Every crewmate has one independent Twin Signal card (`powerId: doubleDetector`) with one use per mission. Additional powers are not invented or enabled. `characterCards` exposes participant, name, description, state (`locked|ready|active|used`), remainingUses, requirements and validTargetIds. Sam's target IDs contain hidden circuits in teammate hands with at least two hidden targets. AI target lists are omitted to avoid exposing its private observation. Locked can mean setup, off-turn, disabled configuration or no legal Sam action. Synchronous activation emits events; there is no persistent animation phase or second activation callback.
 
-AI input is an isolated AIObservation: own values, all sorted positions/restored flags, public reveals, public incorrect guesses, deck distribution, energy and deduction budget. Sam's own visible values are NOT automatically public to AI. No complete solution or seed enters the strategy. Public resolved values remain count/order anchors.
+```ts
+engine.useCharacterPower(ownId, firstHiddenId, secondHiddenId, number, renderedToken);
+```
 
-Constraint propagation intersects domains with known numbers, incorrect guesses, ascending-neighbor bounds and four-copy counts. If four slots are fixed to a number, exclude it elsewhere; if only four candidate slots remain, force them. This is conservative inference, not an exhaustive solver. AI connects only a singleton target matching an owned number; otherwise resolves eligible solo copies, sends a paid own-number clue, or passes. There are no arbitrary AI risks. Easy/Medium/Hard use 48/8/1 propagation passes, 8/5/3 starting clue energy and 15/20/30 damage. Correct actions restore 1 energy. Standard deck remains 1–12 on all three levels; missions may override range/copies.
+Requires Sam's active turn, an unresolved own non-red circuit with the declared number, and two distinct hidden circuits in ONE teammate's hand. The engine spends the card once, then resolves one matching target if present; the other target stays hidden. On failure, exactly one non-red target is revealed and one mistake consequence applies. One red among the targets is safe; two red targets cause catastrophic overload. Both matching targets still resolve only one. No API result reveals whether the unchosen target also matched.
 
-A clue spends a turn; selection does not. AI can pass repeatedly when energy is exhausted and inference is uncertain. Human may choose a risky legal connection, use a clue, or pass. This prototype does not claim every random deal can be solved without risk, nor does it have an exhaustive certainty solver. Countdown still applies.
+`advanceAI(true)` explicitly asks an active AI to use its personal card. It chooses its own first non-red circuit and two hidden circuits in one teammate hand from its isolated observation, then runs the same validation and resolution. This can be a risk. Ordinary `advanceAI()` remains conservative and does not silently spend the card. AI failed declarations expose the declared number but not the private own slot (`ownCircuitId` is an empty string in that public failure record).
 
-Private solution is stored in JS private fields, not state/events/debug logs. UI must not import puzzle generators, expose seeds or attach engine internals to window. Local code remains inspectable; future multiplayer requires server-authoritative hidden state.
+## Legacy support tools
 
-## React coordination
+`tools` is a compatibility system, separate from the three shared equipment cards and all personal cards. Fifth constructor/startMission argument remains per-tool `{uses,unlocked}`. Legacy support charges and static unlock flags do not represent shared equipment progress. Agent 2 should use `equipment` for the new shared display and `characterCards` for personal powers.
 
-Retain one engine in useRef and snapshot in React state. Replace the previous adapter's one-argument attemptConnection and timer-driven advanceAI calls. Disable actions off Sam's turn. Show declarations, public mistake history, turn labels, solo and pass actions. Consume structured events instead of interpreting log messages. Keep UI/animation state outside engine. This branch does not overwrite Agent 2's adapter or shared application configuration; bring these engine files into the UI branch and resolve those integration changes there.
+Legacy `scanCircuit(hiddenId,threshold,token)` spends one charge and turn. `activateShield(token)` arms without spending a turn. `generateHint(token)` provides limited visible-information deduction without spending a turn; `requestHint` is a legacy alias and never an exact-target reveal. Legacy `dualScan(firstId,secondId,number,token)` requires selection and spends one charge/turn; it retains its previous red-risk behavior and is not the personal Double Detector implementation. Keep these available to existing integrations where needed, but do not label their static flags as the new equipment system.
 
+Capture `toolToken` from the rendered snapshot for all equipment, personal-power and support requests. Never refresh it inside a queued duplicate click. Valid activations, setup choices, turns and mission resets invalidate it. Disable submission during handling as an additional UI guard.
 
-# Self-Match and Support Tools update
+## Yellow and red representation
 
-Self-Match is a standard move. `selfMatch(firstSamTileId, secondSamTileId)` checks two distinct equal active tiles. If every unresolved copy belongs to Sam, ALL remaining copies (four or two with standard settings) resolve together. `resolveSolo(number)` remains a compatible shortcut with the same validation. No charge or energy cost. AI uses identical eligibility through its existing solo action. Invalid attempts emit SELF_MATCH_INVALID and throw a clear explanation; hull, turn and inventory do not change. `selfMatches` exposes Sam-only eligibility and explanations even on AI turns. Tile positions remain fixed.
+All yellow circuits have `matchingIdentity: 'yellow'`. The numeric `value` remains an internal ordering/compatibility key; `sortLabel` displays e.g. `5A` for an inserted special sorting position. There are no B circuits. The declaration API still takes the selected yellow's numeric key for compatibility, but matching ignores differences between yellow keys. Do not display decimals as yellow labels or require 5A to match only 5A.
 
-Pass a fifth constructor/startMission argument for per-tool configuration, e.g. `{ scanner: { uses: 2, unlocked: true }, hint: { uses: 0, unlocked: false } }`. Each of scanner, dualScanner, shield and hint defaults to one unlocked use. Restart restores the configured charges. The unlocked flag is a hook for future mission progression; automatic progression unlocks are not implemented.
+`numberTracker` contains one blue-number row with total/resolved/remaining/completed counts, retained after completion. `specialTracker` includes category totals, resolved count, candidate sort positions and confirmed own/public special circuit IDs. Candidate positions do not map to hidden slots; render them as possibilities. Hidden circuits omit labels and identity as well as value and kind. Existing missions remain blue-only below training stage 4, add yellow at stage 4, and red at stage 7.
 
-`state.tools[id]` exposes unlocked, remaining `uses`, `available` and `validTargetIds`. Only active hidden opponent tiles are eligible scanner/dual targets. Shield/Hint are untargeted. For Dual Scanner, UI also needs a selected active Sam tile and TWO distinct validTargetIds. Charges never regenerate. Standard restoration energy rewards do not restore tool charges.
+## Events and presentation
 
-Every tool call REQUIRES the `toolToken` from the rendered state. Capture it in the click handler; DO NOT fetch a fresh token for a queued duplicate click. Successful activations invalidate it immediately; turns and restarts also invalidate it. Reusing the same request cannot spend another charge, even when configured with multiple uses. Invalid commands do not spend charges or advance turns. Disable buttons while handling/animating a request as well.
+Every event has `index`, `turn`, `message`. `getEvents(afterIndex)` returns detached history after a cursor. Reset cursors on restart.
 
-| API | Effect | Ends turn |
-| --- | --- | --- |
-| `scanCircuit(hiddenId, threshold, token)` | Public below/equal/above comparison, stored in scannerResults and available to all AI deductions. Threshold must be an integer inside the mission range. No raw hidden value returned. | Yes |
-| `dualScan(firstHiddenId, secondHiddenId, declaredNumber, token)` | Requires selected owned tile with that number. If either target matches, resolves own tile and first matching target only; does not disclose the unchosen target. If neither matches, records both exclusions, applies ONE incorrect-connection consequence and reveals only the first target. | Yes |
-| `activateShield(token)` | Arms a team shield until the next incorrect connection, including AI/dual failures. No stacking. Correct moves do not consume the shield. It prevents exactly one damage penalty while mistake reveals still occur. | No |
-| `generateHint(token)` | One limited deduction from Sam's own sorted row, public revelations, mistakes and scanner results. May give a logically certain singleton, but never consults private target values. If no narrower domain exists, gives a truthful general strategy statement. No board-wide answer reveal. | No |
+New `RulesEvent` types: `STARTING_INFORMATION`, `POWER_ACTIVATED`, `POWER_USED`, `EQUIPMENT_UNLOCKED`, `EQUIPMENT_USED`, `CATASTROPHIC_OVERLOAD`. Relevant records contain participant, circuitIds, powerId/equipmentId and number. Catastrophic overload is followed by `RED_TRIGGERED`, `LOST`, `MISSION_FAILED` with reason red. Hull may remain positive and shields cannot intercept it; use terminal status and overload events.
 
-SupportEvent extends the existing GameEvent union with SELF_MATCH_SUCCESS / SELF_MATCH_INVALID, SCANNER_ACTIVATED, DUAL_SCANNER_SUCCESS / DUAL_SCANNER_FAILED, SHIELD_ACTIVATED / SHIELD_PREVENTED and HINT_GENERATED. Each has participant, circuitIds, index, turn and message; number, scanner, possibilities and damagePrevented are present as applicable. Self-Match also emits the existing CONNECTION_SUCCESS for compatibility; animate it once rather than twice. Shield prevention still emits SHIP_ATTACK with actual damage 0 and unchanged hull; animate shield interception using SHIELD_PREVENTED. A failed dual scan emits one attack, never two. Invalid Self-Match changes history only.
+Existing success signals remain: `CONNECTION_SUCCESS`, `CIRCUIT_PAIR_RESOLVED`, `SELF_MATCH_COMPLETED`, `SELF_MATCH_SUCCESS`, `NUMBER_COMPLETED`, `YELLOW_RESOLVED`, `RED_SAFELY_RESOLVED`. Ordinary failures emit `CONNECTION_FAILED`, `SHIP_ATTACK`, `SHIP_DAMAGED`; shield prevention adds `SHIELD_PREVENTED` with zero actual hull damage. Equipment scan/hint/shield emits the existing ability event. `MISSION_COMPLETED` / `MISSION_FAILED` and `WON` / `LOST` are terminal aliases.
 
-Agent 2: add a Self-Match selection mode for two own tiles; use selfMatches explanations to explain unavailable matches. Add tool buttons/threshold input/two-target mode, and consume these events using the existing cursor. No UI/adapter files are changed by this engine update. Existing exact requestHint calls need replacement and token handling. Sequence missions still remain unavailable.
+Several event names describe the same outcome. Animate once per resolution/turn, do not double-apply damage or increment counters. Render engine state; events drive effects only. No final artwork, robot-mouse animation, adapter or UI source is changed in this engine update.
 
+## Verification and integration
 
-# Number Board and special circuits
+Engine tests explicitly complete free setup before legacy action regressions. New rules tests cover Captain rotation/eligibility, setup validation, AI, redacted snapshots, equipment unlocks at two/four copies, off-turn use, exhaustion, duplicate/stale requests, both-match power secrecy, single-/double-red exceptions, failure information, own-only Reveal Red, resets and labels. Production TypeScript/Vite build is required.
 
-`getGameState().numberTracker` is always returned by the engine. It contains one row per configured blue number: `{number,totalCopies,resolvedCopies,remainingCopies,completed}`. Standard rows remain visible after reaching four resolved copies. The tracker counts only resolved BLUE tiles, is recomputed from the private board after every command, and is detached from engine state. UI must render this snapshot and must not maintain authoritative counters. A two-tile connection adds two copies; a four-tile Self-Match adds four. `NUMBER_COMPLETED` fires only on the transition to completion.
-
-`Circuit.kind` is `blue | yellow | red` for own or publicly revealed circuits. Hidden other-room slots omit BOTH value and kind. `value` is the numeric SORT KEY, not necessarily the matching category: yellow keys can be fractional and all yellow tiles match each other. A yellow command declares the selected tile's own sort key for compatibility with the existing numeric API. For yellow Self-Match, choose two yellow tiles; all remaining yellow copies must be owned, regardless of differing sort keys. Blue and yellow never match each other. Red is never an ordinary matching source. Do not show yellow/red colors for a hidden slot based on its ID, row length, candidate list or seed.
-
-Mission `specials` holds yellowPositions/redPositions (one numeric sort key per configured copy), redInstantFailure, redSafeRule and showCandidates. All copies are added BEFORE shuffle/deal/sort; IDs are position-based and carry no special markers. Missions `circuit-1` through `circuit-9` demonstrate progression: 1–3 blue only, 4–6 add four yellow keys, 7–9 add two red keys. All remain development entries pending special-circuit UI; `lights` stays unchanged and blue-only. Existing sequence placeholders remain unavailable. Special inventories are additive to configured blue inventory; tool/range overrides remain supported if all configured special keys lie within that range.
-
-`specialTracker` includes yellow/red totals, public resolved counts and completion, plus `candidates: [{sortValue, certainty:'possible'}]` only if showCandidates allows it. These are mission-defined possible numeric positions, never assignments to hidden circuit IDs. They remain uncertain until revealed. `confirmed` lists only own or publicly revealed special IDs/keys with resolved flags. Resolved counts update automatically. Zero-copy categories have completed=true; hide their indicators when totalCopies=0.
-
-When enabled, targeting a red through ordinary matching immediately loses the mission, even with a shield. No tiles resolve. Red is revealed and RED_TRIGGERED / LOST / MISSION_FAILED are emitted. Hull may remain above zero: mission status and failure reason are authoritative. Dual Scanner also triggers red failure if either tested tile is red, even if the other matches. If redInstantFailure=false, an ordinary red target is a wrong connection with normal damage/reveal rules, never a match. Shields still apply to normal penalties.
-
-`resolveRedSafely(ownRedId)` implements the initial mission-specific safe rule: after-other-circuits. All blue/yellow must already be resolved; the actor may then isolate one OWN red tile, ending its turn. A red tile cannot be remotely probed with this command. Disabled rules reject without changing turn or progress. AI uses public resolved inventory counts and its own red identity for the same action. Each red tile contributes 0.5 pair-equivalents to the legacy restored counter; total stays tile-count/2. Prefer numberTracker/specialTracker/remainingCircuits for new progress display.
-
-AI on special missions deliberately uses only confirmed matching categories for cross-room moves; it does not equate numeric sort keys with category identities or apply the blue four-copy count to yellow/red keys. Its Hint domains include every mission-permitted special sort key and use only own/public anchors and scanner results. This conservative strategy may pass until more information is shared. Existing blue-only deduction behavior remains unchanged.
-
-New CircuitEvent records have index, turn, message, circuitIds and optional kind/number/counts/hull/reason:
-- CIRCUIT_PAIR_RESOLVED: authoritative successful pair/Self-Match application (legacy CONNECTION_SUCCESS remains).
-- SELF_MATCH_COMPLETED: validated self resolution; legacy SELF_MATCH_SUCCESS remains.
-- NUMBER_COMPLETED: number, resolvedCopies, totalCopies.
-- YELLOW_RESOLVED: IDs and updated yellow counts.
-- RED_TRIGGERED / RED_SAFELY_RESOLVED: target IDs and rule result.
-- SHIP_DAMAGED: actual damage and hullBefore/hullAfter; legacy SHIP_ATTACK remains.
-- MISSION_COMPLETED / MISSION_FAILED: terminal outcome; failure reason hull, timeout or red.
-
-These are alternative integration signals describing the SAME outcomes as legacy events. Do not animate/count duplicate aliases twice. A robot-mouse animation can consume result IDs/category and defer visual progression, but must never decide matches, apply damage, or modify tracker progress. No character artwork or animation logic is included.
+Reference: project owner's supplied eight-page rules, cross-checked against the [publisher's eight-page English rulebook](https://www.cocktailgames.com/wp-content/uploads/2023/10/BombBusters_rules_EN.pdf), pages 4, 6 and 7. Original SLButter names and ability text are used throughout.

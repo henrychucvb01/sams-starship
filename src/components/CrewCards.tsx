@@ -155,13 +155,13 @@ export function EquipmentCards({
             >
               <ActionExplanation action={item} />
               <p>
-                Unlock number {item.unlockNumber}: {item.resolved}/{item.total}
+                Unlock number {item.unlockNumber}: {Math.min(item.resolved, item.total)}/{item.total}
               </p>
             </InfoPopover>
             <div>
               <h3>{item.name}</h3>
               <p>
-                Number {item.unlockNumber} · {item.resolved}/{item.total}
+                Number {item.unlockNumber} · {Math.min(item.resolved, item.total)}/{item.total}
               </p>
               <small>
                 {item.status === "locked" ? (

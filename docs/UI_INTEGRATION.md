@@ -1,18 +1,18 @@
 # Circuit-board-first UI and revised engine integration
 
-Branch `agent/game-ui` → `main`. Main merge and production deployment are authorized for completed, tested work. This update incorporates Agent 1's tracker/special engine commit `0f43bcd`; all engine modules are unchanged from that commit.
+Branch `agent/game-ui` → `main`. Main merge and production deployment are authorized for completed, tested work. This update incorporates Agent 1's Captain/setup/equipment/powers engine commit `6b815be`; engine modules are unchanged from that commit.
 
 ## Player experience
 
 Nova and Pip's numerically sorted racks appear above Sam's. The engine's `position` is authoritative; all 48 tile IDs/positions persist after resolution. Each row has an avatar, player identity, active-turn indicator, remaining count and its own horizontal scrolling container. Desktop tiles fit 16-slot rows on wide screens; mobile keeps readable, touch-sized tiles and fixed labels outside the scroll region. The small spaceship remains visible beside the board on desktop and above it on mobile. Mission status is a compact ribbon rather than dashboard cards.
 
-Select one Sam tile and one crew tile to open a declaration panel. The selected Sam number is prefilled and read-only: no arbitrary declaration is accepted. Cancel clears the target; changing tiles updates the confirmation. Connect calls `selectCircuit` followed by the revised two-argument `attemptConnection(target, selectedNumber)`. Off-turn/restored/terminal actions are disabled. The engine independently validates every action. Pass and selected-number solo resolution call the engine's public commands; UI does not calculate solo eligibility.
+Select one Sam tile and one crew tile to open a centered confirmation dialog. The selected Sam number is prefilled and read-only: no arbitrary declaration is accepted. Cancel clears the target; changing tiles updates the confirmation. Connect calls `selectCircuit` followed by the revised two-argument `attemptConnection(target, selectedNumber)`. Off-turn/restored/terminal actions are disabled. The engine independently validates every action. Pass and selected-number solo resolution call the engine's public commands; UI does not calculate solo eligibility.
 
 ## Public state boundary
 
 `src/adapters/engineAdapter.ts` imports only `GameEngine` and public types from the engine barrel. There are no generator/private-board imports, seed-derived answers or engine references exposed on window.
 
-- Racks map public `circuits`, sorted by engine `position`. AI values appear only when `getGameState()` explicitly includes them following a clue, mistake or resolution.
+- Racks map public `circuits`, sorted by engine `position`. AI values appear only when `getGameState()` explicitly includes them following starting information, a clue, mistake or resolution.
 - `currentParticipant` and `turnNumber` drive turn labels and disabled controls. Thinking labels are presentation during the scheduled AI pause; the UI never decides whose turn comes next.
 - Unlimited deduction tooltips are removed. Production does not render possibilities or exact-answer hint buttons. Sam’s Hint is an explicitly charged, engine-generated deduction.
 - `incorrectGuesses` persist on target tiles as excluded declarations. Public mistake numbers and all clue/connection records remain reviewable in the expandable deduction log.
@@ -32,7 +32,7 @@ A 250ms scheduler advances actual `performance.now()` deltas, reconciling tab su
 
 ## Assets, mocks and limitations
 
-The ship is original CSS environment art. Sam remains a dashed TEMP ART marker with thinking, happy, surprised, worried, celebrating and sad hooks. Nova and Pip use temporary initial avatars. Approved mascot/character art is pending. Sound is explicitly unavailable. Only Restore the Lights/Easy is enabled; other content remains Coming Soon.
+The ship is original CSS environment art. Sam remains a dashed TEMP ART marker with thinking, happy, surprised, worried, celebrating and sad hooks. Nova and Pip use temporary initial avatars. Approved mascot/character art is pending. Sound is explicitly unavailable. Restore the Lights/Easy and the labeled yellow/red training missions are playable; sequence missions and other difficulties remain Coming Soon.
 
 Production uses the revised real engine, with no mock fallback or compatibility gameplay. `tests/fixtures/boardHarness.tsx` is a labeled visual-only fixture for deterministic interaction/effect checks. `tests/fixtures/realHarness.tsx` uses the real standard engine with fixed seed 42 (and an optional fatal-damage override) for repeatable browser verification. Both HTML entries are test-only and excluded from the production SPA build.
 
@@ -94,25 +94,19 @@ The review update is committed on agent/game-ui only; it must not be merged into
 
 Number tiles use navy until the adapter's `complete` value is true, then green with dark contrasting number, checkmark, pips and count. Embedded special badges retain their public positions and certainty styles. No engine modules or gameplay rules changed.
 
-### Crew support UI — pending Agent 1 API (review blocker)
+### Integrated crew support (PR #6 engine)
 
-The published agent/game-engine head at implementation time remains 0f43bcd. Its GameState and GAME_ENGINE_API.md have no Captain, character powers, shared equipment, starting-information phase/commands, or public safe-red eligibility. This UI change does **not** invent those rules, select a Captain, generate starting markers, calculate unlock progress, or pretend those features are integrated. The existing adapter does not populate the new feature fields. Integration and real-engine verification of those features remain blocked until Agent 1 publishes the update. Do not merge this preparation as a completed rules integration.
+The production adapter consumes Agent 1 commit `6b815be223e1c47b12528c35625b4ab0ca9fc095` without changing engine rules. The previous presentation-only crew fixture has been removed.
 
-src/types/crewPresentation.ts is a **proposed presentation contract**, not a competing engine API:
-- crewFeatures.captainId is rendered beside the matching row name. The UI never defaults to Sam.
-- crew[] describes existing participants and their optional engine-supported power. Descriptions, requirements, availability, used flags and remaining uses must be mapped from Agent 1, not authored in React.
-- equipment[] supplies unlock number, resolved/total progress, locked/ready/used status and the same public action description. No UI progress counter is stored.
-- Every action supplies public labeled target options and required selection counts. CrewActionDialog renders those options and sends opaque IDs, choices and the rendered actionToken through performCrewAction. Agent 1's actual command names still need binding in the adapter.
-- startingInformation supplies pending, legal blue availableIds, description and public marker IDs/labels. StartingInformation lets Sam explicitly choose, review, cancel or confirm through selectStartingInformation(id, token). No random default. Normal board controls are disabled while setup is pending. Agent 1 must own timer/setup/AI progression.
-- isolateOverload must provide authoritative availability, reason, targets and consequences. The action stays disabled until supplied. The old engine's different after-other-circuits rule must not be silently presented as the owner's newly requested active-player rule.
-- The existing public selfMatches contract is integrated now: both pair review and Self-Connection use engine eligibility and list all affected own slots. Invalid eligibility disables confirmation. Cancel calls no engine method. The legacy resolveSolo and selfMatch commands remain the source of validation.
+- `captain` projects to the matching crew badge; `currentParticipant` remains independent. A menu-to-intro-to-game launch does not restart a second time. Later mission starts and retries use engine rotation.
+- `phase`, `startingInformationChoices` and `startingInformation` drive explicit Sam setup, confirmation and persistent public markers. `chooseStartingInformation(id)` runs only on confirmation, followed by engine `advanceAI()` setup calls until turns begin. Normal AI turns never run during setup. The presentation clock waits for setup completion; gameplay clock deltas still use actual elapsed time.
+- `characterCards` supplies Twin Signal name, description, requirements, usage and legal hidden target IDs. Target labels disclose owner and fixed position only. The modal collects an own non-red source and two distinct targets in one teammate hand, then calls `useCharacterPower` using the captured rendered token. React does not decide the result.
+- `equipment` exclusively drives the three shared cards, their unlock number/progress, availability and locked/ready/used status. Visual progress is clamped to its two-copy requirement; raw resolved copy counts remain engine-owned. Equipment commands route to `useEquipment`. Any-turn items remain usable during AI turns. Legacy support tools retain a separate Toolkit and separate charges.
+- `selfMatches` and `revealRedActions` supply eligibility and explanations. Self-Connection previews all affected own slots. Isolate Overload previews and safely clears all eligible red IDs using `resolveRedSafely`; teammates may still hold non-red circuits.
+- All confirmations use `ConfirmationDialog`: native top layer/backdrop, focus containment/restoration, Escape, explicit confirmation and duplicate lock. While reviewing an action, ordinary AI scheduling waits; the countdown continues. Closing gives the crew its normal presentation delay before its next AI action. No gameplay resources are spent by opening or canceling a dialog.
+- `POWER_ACTIVATED` drives one activation cue; `CONNECTION_SUCCESS` drives one success cue. `RED_TRIGGERED` drives catastrophe; its overload aliases are not replayed as separate attacks. `RED_SAFELY_RESOLVED` drives one safe power-down cue. Zero-damage shield attacks do not trigger damage effects. Equipment and marker transitions animate from authoritative card/marker state.
+- Blue completion colors and embedded yellow/red badges remain unchanged. Rack ordering uses fixed engine positions, and A labels use public `sortLabel`. No hidden identity is inferred from candidate tracker positions.
 
-Components:
-- CharacterCard replaces only the existing rack header content; portraits remain approved placeholders. CaptainBadge uses an original SVG command emblem.
-- InfoPopover exposes identical explanations via hover, focus and tap, with Escape/outside dismissal and viewport-constrained portal placement.
-- EquipmentCards is a compact shared area separate from personal powers.
-- All actions reuse ConfirmationDialog: native top-layer positioning, backdrop, focus trap/return, Escape, duplicate lock and explicit confirmation.
-- Existing RED_SAFELY_RESOLVED maps to a safe-powerdown isolate visual; catastrophic red and normal success/damage events remain unchanged. New engine power/unlock/setup events still require adapter mapping once published.
-- NumberTracker and its navy/green states and embedded badges are unchanged.
+Validation includes the complete real-engine public-deduction mission through victory and replay, hull defeat and timeout, Captain first turn and rotation, deliberate setup/cancel, power secrecy and one-use behavior, shared equipment unlock/use during AI turns, Self-Connection, safe isolation, catastrophic red failure, mouse/touch dragging, reduced motion and keyboard/tap/hover/modal accessibility. `crew-ui.spec.ts` uses the real adapter and engine; its small isolation mission is test-only configuration, not substitute gameplay logic. `crew-adapter.test.ts` verifies real public-state projection and command semantics independently of React. Final test totals and deployment details are recorded in the integration PR.
 
-Testing: existing engine/adapter tests and real-engine board flows remain in use. tests/fixtures/crewHarness.tsx explicitly provides synthetic **presentation contract inputs only**, over a real-engine board, for UI testing of currently unpublished fields. Its test power/equipment names are deliberately labeled as test inputs; commands only record fixture interactions. It is not imported into production, contains no matching/damage/AI rules, and is not a substitute for real-engine integration testing. Remove or align these fixtures once the actual API is published.
+Verified 2026-10-27: production build passed; 51 engine/adapter tests passed; 38 desktop/mobile Playwright checks passed; 2 desktop/mobile smoke checks against the compiled production build passed. No crew gameplay mocks remain.
