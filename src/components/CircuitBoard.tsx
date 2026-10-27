@@ -12,8 +12,15 @@ import type {
   Slot,
   ToolId,
 } from "../types/presentation";
+import { CharacterCard, EquipmentCards } from "./CrewCards";
+import { CrewActionDialog } from "./CrewActionDialog";
+import { StartingInformation } from "./StartingInformation";
+import type { CrewActionView } from "../types/crewPresentation";
 import { NumberTracker } from "./NumberTracker";
+import { ConnectionDialog } from "./ConnectionDialog";
 import { ConnectionOverlay } from "./ConnectionOverlay";
+import { ConfirmationDialog } from "./ConfirmationDialog";
+import { icons, descriptions } from "./Toolkit";
 import { Toolkit } from "./Toolkit";
 import { Sam, Ship } from "./Ship";
 const clock = (s: number) =>
@@ -85,6 +92,10 @@ export function CircuitBoard({
     cy: number;
   } | null>(null);
   const suppressClick = useRef(false);
+  const [crewAction, setCrewAction] = useState<CrewActionView | null>(null);
+  const [crewToken, setCrewToken] = useState("");
+  const openCrewAction = (action: CrewActionView) => {setCrewToken(state.crewFeatures?.actionToken ?? "");setCrewAction(action);};
+  const [utility, setUtility] = useState<"solo" | null>(null);
   const [dragNotice, setDragNotice] = useState("");
   const [own, setOwn] = useState("");
   const [target, setTarget] = useState("");
@@ -96,6 +107,8 @@ export function CircuitBoard({
     (s) => s.id === secondOwn && !s.restored,
   );
   const clearSelection = () => {
+    setCrewAction(null);
+    setUtility(null);
     setDrag(null);
     pointer.current = null;
     setOwn("");
@@ -128,6 +141,10 @@ export function CircuitBoard({
     }
     previous.current = state.event.id;
   }, [state.event.id]);
+  useEffect(() => {
+    adapter.setInteractionPending?.(!!crewAction || declaring || !!selectedTool || !!utility);
+    return () => adapter.setInteractionPending?.(false);
+  }, [adapter, crewAction, declaring, selectedTool, utility]);
   const effect = useEffects(state.effects ?? [], reset);
   const boardRef = useRef<HTMLDivElement>(null);
   const [arc, setArc] = useState({ path: "", width: 1, height: 1 });
@@ -163,7 +180,10 @@ export function CircuitBoard({
     });
   }, [effect]);
   const turn = state.board?.turn;
-  const canAct = state.status === "playing" && (!turn || turn === "sam");
+  const canAct =
+    state.status === "playing" &&
+    !state.crewFeatures?.startingInformation?.pending &&
+    (!turn || turn === "sam");
   function beginDrag(
     event: ReactPointerEvent<HTMLButtonElement>,
     slot: Slot,
@@ -303,11 +323,6 @@ export function CircuitBoard({
   const targetSlot = targetRoom?.slots.find(
     (s) => s.id === target && !s.restored,
   );
-  const confirmation = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (declaring && ownSlot && (targetSlot || secondOwnSlot))
-      confirmation.current?.focus();
-  }, [declaring, own, target]);
   useEffect(() => {
     if (!ownSlot || (!targetSlot && !secondOwnSlot) || !canAct)
       setDeclaring(false);
@@ -352,8 +367,21 @@ export function CircuitBoard({
     setBusy(true);
     setDragNotice("");
     try {
-      if (secondOwnSlot) adapter.selfMatch?.([ownSlot.id, secondOwnSlot.id]);
-      else if (targetSlot) adapter.connect(ownSlot.id, targetSlot.id);
+      if (secondOwnSlot) {
+        const eligibility = state.selfMatches?.find(
+          (m) =>
+            m.circuitIds.includes(ownSlot.id) &&
+            m.circuitIds.includes(secondOwnSlot.id),
+        );
+        if (!eligibility?.eligible) {
+          setDragNotice(
+            eligibility?.explanation ??
+              "Self-Connection is unavailable.",
+          );
+          return;
+        }
+        adapter.selfMatch?.([ownSlot.id, secondOwnSlot.id]);
+      } else if (targetSlot) adapter.connect(ownSlot.id, targetSlot.id);
       setSecondOwn("");
       setDeclaring(false);
       setOwn("");
@@ -372,7 +400,7 @@ export function CircuitBoard({
           : state.hull <= 75
             ? "minor"
             : "normal";
-  const turnText = turn
+  const turnText = state.board?.phase === "setup" ? "Starting information · choose a blue circuit" : turn
     ? `${turn === "sam" ? "Sam's" : turn === "nova" ? "Nova's" : "Pip's"} turn${state.board?.phase === "thinking" ? " · thinking" : state.board?.phase === "connecting" ? " · connecting" : ""}`
     : "Turn flow pending engine update";
   function tile(
@@ -395,6 +423,7 @@ export function CircuitBoard({
     const exact =
       slot.clue && slot.clue.min === slot.clue.max ? slot.clue.min : undefined;
     const shown = value ?? exact;
+
     const affected = effect?.slotIds.includes(slot.id);
     return (
       <button
@@ -452,6 +481,18 @@ export function CircuitBoard({
             {slot.type === "red" ? "⚠" : slot.type === "yellow" ? "◆" : "●"}
           </span>
         )}
+        {state.crewFeatures?.startingInformation?.markers
+          .filter((m) => m.circuitId === slot.id)
+          .map((m) => (
+            <span
+              key={m.circuitId}
+              className="information-marker"
+              title={m.label}
+              aria-label={m.label}
+            >
+              i
+            </span>
+          ))}
         <span className="wire-pins" aria-hidden="true" />
         <strong>
           {slot.type === "yellow"
@@ -488,7 +529,7 @@ export function CircuitBoard({
   }
   return (
     <section
-      className={`deduction-screen ${effect?.kind === "damage" || effect?.kind === "critical" ? "screen-impact" : ""}`}
+      className={`deduction-screen effect-${effect?.kind ?? "idle"} ${effect?.kind === "damage" || effect?.kind === "critical" ? "screen-impact" : ""}`}
     >
       <div className="board-heading">
         <div>
@@ -540,6 +581,30 @@ export function CircuitBoard({
       <div className="deduction-layout">
         <div className="board-main">
           <NumberTracker tracker={state.tracker} />
+          <StartingInformation
+            state={state}
+            adapter={adapter}
+            headingRef={headingRef}
+          />
+          <EquipmentCards
+            equipment={state.crewFeatures?.equipment ?? []}
+            canAct={state.status === "playing" && !state.crewFeatures?.startingInformation?.pending && !!adapter.performCrewAction}
+            onAction={openCrewAction}
+          />
+          {crewAction && (
+            <CrewActionDialog
+              key={crewAction.id}
+              action={crewAction}
+              token={crewToken}
+              onCancel={() => setCrewAction(null)}
+              fallbackFocus={headingRef}
+              onConfirm={async (id, choices, token) => {
+                await adapter.performCrewAction?.(id, choices, token);
+                setCrewAction(null);
+              }}
+            />
+          )}
+
           <p className="drag-instructions">
             Tap two circuits, or drag from Sam’s grip ⠿ to a target. Every
             connection needs confirmation.
@@ -559,7 +624,7 @@ export function CircuitBoard({
                       phase: "result",
                       outcome: effect.kind,
                       eventId: effect.id,
-                      circuitIds:effect.slotIds,
+                      circuitIds: effect.slotIds,
                     }
                   : declaring
                     ? {
@@ -583,27 +648,32 @@ export function CircuitBoard({
                 key={room.id}
                 aria-label={`${room.name} circuit rack`}
               >
-                <div className="rack-label">
-                  <span
-                    className="portrait"
-                    aria-label={`${room.name} temporary avatar`}
-                  >
-                    {room.name[0]}
-                  </span>
-                  <div>
-                    <h2>
-                      {room.name} <small>AI CREWMATE</small>
-                    </h2>
-                    <p>
+                <CharacterCard
+                  crew={
+                    state.crewFeatures?.crew.find((c) => c.id === room.id) ?? {
+                      id: room.id,
+                      name: room.name,
+                    }
+                  }
+                  captain={state.crewFeatures?.captainId === room.id}
+                  portrait={
+                    <span
+                      className="portrait"
+                      aria-label={room.name + " temporary avatar"}
+                    >
+                      {room.name[0]}
+                    </span>
+                  }
+                  detail={
+                    <>
                       {turn === room.id ? "● ACTIVE TURN" : room.system} ·{" "}
                       {room.slots.filter((s) => !s.restored).length} circuits
                       left
-                    </p>
-                  </div>
-                  <span className="rack-direction">
-                    {state.board?.ordered ? "LOW → HIGH" : "ENGINE ORDER"}
-                  </span>
-                </div>
+                    </>
+                  }
+                  onAction={openCrewAction}
+                  canAct={false}
+                />
                 <div
                   className="rack-scroll"
                   tabIndex={0}
@@ -629,32 +699,40 @@ export function CircuitBoard({
               className={`rack rack-sam ${turn === "sam" ? "active-rack" : ""}`}
               aria-label="Sam circuit rack"
             >
-              <div className="rack-label">
-                <Sam
-                  expression={
-                    effect?.kind === "hint"
-                      ? "thinking"
-                      : effect?.kind === "damage" || effect?.kind === "critical"
-                        ? "surprised"
-                        : state.hull <= 25
-                          ? "worried"
-                          : effect?.kind === "success"
-                            ? "happy"
-                            : "thinking"
+              <CharacterCard
+                crew={
+                  state.crewFeatures?.crew.find((c) => c.id === "sam") ?? {
+                    id: "sam",
+                    name: "Sam",
                   }
-                />
-                <div>
-                  <h2>
-                    Sam <small>YOU</small>
-                  </h2>
-                  <p>
+                }
+                captain={state.crewFeatures?.captainId === "sam"}
+                portrait={
+                  <Sam
+                    expression={
+                      effect?.kind === "hint"
+                        ? "thinking"
+                        : effect?.kind === "damage" ||
+                            effect?.kind === "critical"
+                          ? "surprised"
+                          : state.hull <= 25
+                            ? "worried"
+                            : effect?.kind === "success"
+                              ? "happy"
+                              : "thinking"
+                    }
+                  />
+                }
+                detail={
+                  <>
                     {turn === "sam" ? "● YOUR TURN" : "Your circuits"} ·{" "}
                     {state.ownCircuits.filter((s) => !s.restored).length}{" "}
                     circuits left
-                  </p>
-                </div>
-                <span className="rack-direction">LOW → HIGH</span>
-              </div>
+                  </>
+                }
+                onAction={openCrewAction}
+                canAct={canAct && !!adapter.performCrewAction}
+              />
               <div
                 className="rack-scroll"
                 tabIndex={0}
@@ -708,134 +786,196 @@ export function CircuitBoard({
             )}
           </div>
           {declaring && ownSlot && (targetSlot || secondOwnSlot) && (
-            <div
-              className="declaration-panel"
-              ref={confirmation}
-              tabIndex={-1}
-              role="region"
-              aria-label="Confirm connection"
-              onKeyDown={(e) => {
-                if (e.key === "Escape") setDeclaring(false);
+            <ConnectionDialog
+              source={ownSlot}
+              target={secondOwnSlot ?? targetSlot!}
+              targetName={secondOwnSlot ? "Sam" : targetRoom!.name}
+              targetPosition={
+                secondOwnSlot
+                  ? state.ownCircuits.findIndex(
+                      (s) => s.id === secondOwnSlot.id,
+                    ) + 1
+                  : targetRoom!.slots.findIndex((s) => s.id === target) + 1
+              }
+              selfMatch={!!secondOwnSlot}
+              explanation={
+                secondOwnSlot
+                  ? state.selfMatches?.find((m) => m.number === ownSlot.value)
+                      ?.explanation
+                  : undefined
+              }
+              busy={busy || !canAct}
+              confirmDisabled={
+                !!secondOwnSlot &&
+                !state.selfMatches?.some(
+                  (m) =>
+                    m.eligible &&
+                    m.circuitIds.includes(ownSlot.id) &&
+                    m.circuitIds.includes(secondOwnSlot.id),
+                )
+              }
+              resolvedSlots={
+                secondOwnSlot
+                  ? state.selfMatches
+                      ?.find(
+                        (m) =>
+                          m.circuitIds.includes(ownSlot.id) &&
+                          m.circuitIds.includes(secondOwnSlot.id),
+                      )
+                      ?.circuitIds.map(
+                        (id) =>
+                          `Sam · slot ${state.ownCircuits.findIndex((s) => s.id === id) + 1}`,
+                      )
+                  : undefined
+              }
+              onConfirm={connect}
+              onCancel={() => {
+                suppressClick.current = false;
+                setDeclaring(false);
+                setTarget("");
+                setSecondOwn("");
               }}
-            >
-              <div>
-                <span className="eyebrow">ARE YOU SURE?</span>
-                <p>
-                  Connect Sam’s <strong>{ownSlot.value}</strong> to{" "}
-                  {secondOwnSlot
-                    ? "Sam’s second matching circuit"
-                    : `${targetRoom!.name}, slot ${targetRoom!.slots.findIndex((s) => s.id === target) + 1}`}
-                  ?
-                  {secondOwnSlot && (
-                    <small className="self-explainer">
-                      {state.selfMatches?.find(
-                        (m) => m.number === ownSlot.value,
-                      )?.explanation ??
-                        "The engine checks whether Sam holds every remaining copy."}
-                    </small>
-                  )}
-                </p>
-              </div>
-              <label>
-                Declared number
-                <input
-                  aria-label="Declared number"
-                  inputMode="numeric"
-                  value={ownSlot.value}
-                  readOnly
-                />
-              </label>
-              <button
-                className="text-button cancel-declaration"
-                onClick={() => {
-                  setDeclaring(false);
-                  setTarget("");
-                  setSecondOwn("");
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                className="primary"
-                disabled={busy || !canAct}
-                onClick={connect}
-                aria-label={secondOwnSlot ? "Connect Pair" : "Connect circuits"}
-              >
-                {secondOwnSlot ? "Connect Pair" : "Connect"} <span>ϟ</span>
-              </button>
-            </div>
+              fallbackFocus={headingRef}
+            />
           )}
-          {selectedTool && (
-            <div
-              className="tool-confirmation"
-              role="region"
-              aria-label="Confirm tool"
-            >
-              <span className="eyebrow">
-                {state.tools?.find((t) => t.id === selectedTool)?.name ??
-                  "Tool"}
-              </span>
-              <p>
-                {selectedTool === "shield"
-                  ? "Activate a shield around the shared ship."
-                  : selectedTool === "hint"
-                    ? "Receive one engine-generated deduction clue."
-                    : selectedTool === "dual-scanner"
-                      ? `Choose two crew circuits and one Sam number. ${toolTargets.length}/2 targets selected.`
-                      : "Choose a crew circuit and enter a threshold."}
-              </p>
-              {selectedTool === "scanner" && (
-                <label>
-                  Threshold
-                  <input
-                    aria-label="Scanner threshold"
-                    type="number"
-                    value={threshold}
-                    onChange={(e) => setThreshold(e.target.value)}
-                  />
-                </label>
-              )}
-              <button
-                className="text-button"
-                onClick={() => {
-                  setSelectedTool(null);
-                  setToolTargets([]);
-                }}
-              >
-                Cancel tool
-              </button>
-              <button
-                className="primary"
-                disabled={
-                  !canAct ||
-                  busy ||
-                  !adapter.useTool ||
-                  (selectedTool === "scanner" &&
-                    (toolTargets.length !== 1 ||
-                      !Number.isSafeInteger(Number(threshold)))) ||
-                  (selectedTool === "dual-scanner" &&
-                    (toolTargets.length !== 2 || !ownSlot))
-                }
-                onClick={() => {
-                  if (!canAct || busy) return;
-                  setBusy(true);
-                  try {
-                    adapter.useTool?.(selectedTool, {
-                      targets: toolTargets,
-                      token: state.toolToken ?? "",
-                      ownId: own,
-                      threshold: Number(threshold),
-                    });
-                    clearSelection();
-                  } finally {
-                    setBusy(false);
+          {selectedTool &&
+            (() => {
+              const tool = state.tools?.find((t) => t.id === selectedTool);
+              const needsTargets =
+                selectedTool === "scanner" || selectedTool === "dual-scanner";
+              const ready =
+                !needsTargets ||
+                (selectedTool === "scanner"
+                  ? toolTargets.length === 1 &&
+                    Number.isSafeInteger(Number(threshold))
+                  : toolTargets.length === 2 && !!ownSlot);
+              return (
+                <ConfirmationDialog
+                  title={tool?.name ?? "Confirm tool"}
+                  eyebrow={
+                    <>
+                      <span aria-hidden="true">{icons[selectedTool]}</span>{" "}
+                      SAM’S TOOLKIT
+                    </>
                   }
-                }}
-              >
-                Confirm tool
-              </button>
-            </div>
-          )}
+                  description={
+                    <>
+                      {descriptions[selectedTool]}{" "}
+                      <strong>
+                        {tool?.remaining ?? 0}{" "}
+                        {tool?.remaining === 1 ? "use" : "uses"} remaining.
+                      </strong>
+                    </>
+                  }
+                  busy={busy || !canAct}
+                  confirmDisabled={!ready || !adapter.useTool}
+                  confirmLabel="Confirm Tool"
+                  onCancel={() => {
+                    setSelectedTool(null);
+                    setToolTargets([]);
+                  }}
+                  onConfirm={() => {
+                    if (!canAct || busy || !ready) return;
+                    setBusy(true);
+                    try {
+                      adapter.useTool?.(selectedTool, {
+                        targets: toolTargets,
+                        token: state.toolToken ?? "",
+                        ownId: own,
+                        threshold: Number(threshold),
+                      });
+                      clearSelection();
+                    } finally {
+                      setBusy(false);
+                    }
+                  }}
+                  fallbackFocus={headingRef}
+                >
+                  {needsTargets && (
+                    <fieldset className="tool-modal-targets">
+                      <legend>
+                        {selectedTool === "dual-scanner"
+                          ? "Choose two crew circuits"
+                          : "Choose a crew circuit"}
+                      </legend>
+                      {state.rooms.map((room) => (
+                        <label key={room.id}>
+                          {room.name}
+                          <select
+                            aria-label={room.name + " tool target"}
+                            value=""
+                            onChange={(e) => {
+                              if (e.target.value) selectTarget(e.target.value);
+                            }}
+                          >
+                            <option value="">Select hidden slot…</option>
+                            {room.slots.map(
+                              (slot, i) =>
+                                tool?.targetIds?.includes(slot.id) &&
+                                !slot.restored && (
+                                  <option key={slot.id} value={slot.id}>
+                                    {room.name} · slot {i + 1}
+                                    {toolTargets.includes(slot.id)
+                                      ? " · selected"
+                                      : ""}
+                                  </option>
+                                ),
+                            )}
+                          </select>
+                        </label>
+                      ))}
+                      <p aria-live="polite">
+                        {toolTargets.length
+                          ? toolTargets
+                              .map((id) => {
+                                const room = state.rooms.find((r) =>
+                                  r.slots.some((s) => s.id === id),
+                                )!;
+                                return (
+                                  room.name +
+                                  " · slot " +
+                                  (room.slots.findIndex((s) => s.id === id) + 1)
+                                );
+                              })
+                              .join(", ")
+                          : "No targets selected"}
+                      </p>
+                    </fieldset>
+                  )}
+                  {selectedTool === "scanner" && (
+                    <label className="tool-modal-field">
+                      Threshold
+                      <input
+                        aria-label="Scanner threshold"
+                        type="number"
+                        value={threshold}
+                        onChange={(e) => setThreshold(e.target.value)}
+                      />
+                    </label>
+                  )}
+                  {selectedTool === "dual-scanner" && (
+                    <label className="tool-modal-field">
+                      Sam’s numbered circuit
+                      <select
+                        aria-label="Sam tool circuit"
+                        value={own}
+                        onChange={(e) => setOwn(e.target.value)}
+                      >
+                        <option value="">Select Sam’s circuit…</option>
+                        {state.ownCircuits
+                          .filter((s) => !s.restored)
+                          .map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.value} · slot{" "}
+                              {state.ownCircuits.indexOf(s) + 1}
+                            </option>
+                          ))}
+                      </select>
+                    </label>
+                  )}
+                </ConfirmationDialog>
+              );
+            })()}
           {state.toolClue && (
             <p className="sam-clue" role="status">
               ✧ {state.toolClue}
@@ -856,31 +996,76 @@ export function CircuitBoard({
             </button>
             <button
               className="secondary compact"
-              disabled={!canAct || !ownSlot}
+              disabled={
+                !canAct ||
+                !ownSlot ||
+                !state.selfMatches?.some(
+                  (m) => m.eligible && m.circuitIds.includes(ownSlot.id),
+                )
+              }
+              onClick={() => setUtility("solo")}
+            >
+              Self-Connection
+            </button>
+            <button
+              className="secondary compact"
+              disabled={
+                !canAct ||
+                !state.crewFeatures?.isolateOverload?.available ||
+                !adapter.performCrewAction
+              }
               onClick={() => {
-                setDeclaring(false);
-                adapter.resolveSolo(own);
+                if (state.crewFeatures?.isolateOverload)
+                  openCrewAction(state.crewFeatures.isolateOverload);
               }}
             >
-              Resolve selected number alone
+              Isolate Overload
             </button>
-            {ownSlot?.type === "red" && (
-              <button
-                className="secondary compact"
-                disabled={!canAct}
-                onClick={() => {
-                  adapter.isolateRed?.(ownSlot.id);
-                  clearSelection();
-                }}
-              >
-                Isolate selected red
-              </button>
-            )}
             <small>
-              Solo works only when Sam holds every remaining copy. The engine
-              checks eligibility.
+              {ownSlot
+                ? state.selfMatches?.find((m) =>
+                    m.circuitIds.includes(ownSlot.id),
+                  )?.explanation
+                : "Select one of Sam’s circuits to check Self-Connection eligibility."}
+            </small>
+            <small>
+              {state.crewFeatures?.isolateOverload?.reason ??
+                "Safe isolation is unavailable in this build."}
             </small>
           </div>
+          {utility === "solo" &&
+            ownSlot &&
+            (() => {
+              const eligibility = state.selfMatches?.find((m) =>
+                m.circuitIds.includes(ownSlot.id),
+              );
+              return (
+                <ConfirmationDialog
+                  title="Self-Connection"
+                  eyebrow="SAM’S CIRCUITS"
+                  description="Clear the remaining matching circuits held by Sam. All listed slots clear together."
+                  busy={busy || !canAct}
+                  confirmDisabled={!eligibility?.eligible}
+                  confirmLabel="Confirm"
+                  onCancel={() => setUtility(null)}
+                  fallbackFocus={headingRef}
+                  onConfirm={() => {
+                    adapter.resolveSolo(own);
+                    clearSelection();
+                  }}
+                >
+                  <p>{eligibility?.explanation}</p>
+                  <ul className="action-circuit-list">
+                    {eligibility?.circuitIds.map((id) => (
+                      <li key={id}>
+                        Sam · slot{" "}
+                        {state.ownCircuits.findIndex((s) => s.id === id) + 1}
+                      </li>
+                    ))}
+                  </ul>
+                </ConfirmationDialog>
+              );
+            })()}
           <details className="deduction-log">
             <summary>
               Deduction log · {state.history?.length ?? state.messages.length}{" "}

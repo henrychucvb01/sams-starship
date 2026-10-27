@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { createEngineAdapter } from "../src/adapters/engineAdapter";
 test("Easy tool locks and charges come from engine; hints limited and token replay rejected", () => {
   const a = createEngineAdapter(42, {}, { hint: { uses: 2, unlocked: true } });
+  a.selectStartingInformation!(a.getSnapshot().crewFeatures!.startingInformation!.availableIds.at(-1)!, "");
   a.activate();
   try {
     let s = a.getSnapshot();
@@ -12,7 +13,7 @@ test("Easy tool locks and charges come from engine; hints limited and token repl
       false,
     );
     assert(
-      s.rooms.every((r) => r.slots.every((c) => !c.clue && !c.possibilities)),
+      s.rooms.every((r) => r.slots.filter(c => !c.clue).every((c) => !c.possibilities)),
     );
     const token = s.toolToken!;
     a.useTool!("hint", { targets: [], token });
@@ -38,6 +39,7 @@ test("Easy tool locks and charges come from engine; hints limited and token repl
 });
 test("Self-Match clears four real circuits with one animation; invalid pair leaves hull and turn intact", () => {
   const a = createEngineAdapter(2);
+  a.selectStartingInformation!(a.getSnapshot().crewFeatures!.startingInformation!.availableIds.at(-1)!, "");
   a.activate();
   try {
     let s = a.getSnapshot();
@@ -57,6 +59,7 @@ test("Self-Match clears four real circuits with one animation; invalid pair leav
     a.dispose();
   }
   const b = createEngineAdapter(42);
+  b.selectStartingInformation!(b.getSnapshot().crewFeatures!.startingInformation!.availableIds.at(-1)!, "");
   b.activate();
   try {
     const s = b.getSnapshot(),
@@ -74,6 +77,7 @@ test("Self-Match clears four real circuits with one animation; invalid pair leav
 });
 test("Shield absorbs one real incorrect connection and produces blocked, not damage animation", () => {
   const a = createEngineAdapter(42);
+  a.selectStartingInformation!(a.getSnapshot().crewFeatures!.startingInformation!.availableIds.at(-1)!, "");
   a.activate();
   try {
     const s = a.getSnapshot();
@@ -92,6 +96,7 @@ test("Shield absorbs one real incorrect connection and produces blocked, not dam
 });
 test("tracker maps authoritative copy counts and special identities stay redacted", () => {
   const a = createEngineAdapter(2);
+  a.selectStartingInformation!(a.getSnapshot().crewFeatures!.startingInformation!.availableIds.at(-1)!, "");
   a.activate();
   try {
     let s = a.getSnapshot();
@@ -115,13 +120,14 @@ test("tracker maps authoritative copy counts and special identities stay redacte
     a.dispose();
   }
   const b = createEngineAdapter(42, {}, {}, "circuit-7");
+  b.selectStartingInformation!(b.getSnapshot().crewFeatures!.startingInformation!.availableIds.at(-1)!, "");
   b.activate();
   try {
     const s = b.getSnapshot();
     assert.equal(s.tracker?.specials.length, 2);
     assert(
       s.rooms.every((r) =>
-        r.slots.every((c) => c.type === undefined && c.sortLabel === undefined),
+        r.slots.filter(c => !c.clue).every((c) => c.type === undefined && c.sortLabel === undefined),
       ),
     );
     assert(
