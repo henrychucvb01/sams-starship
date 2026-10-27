@@ -15,6 +15,8 @@ import type {
 import { NumberTracker } from "./NumberTracker";
 import { ConnectionDialog } from "./ConnectionDialog";
 import { ConnectionOverlay } from "./ConnectionOverlay";
+import { ConfirmationDialog } from "./ConfirmationDialog";
+import { icons, descriptions } from "./Toolkit";
 import { Toolkit } from "./Toolkit";
 import { Sam, Ship } from "./Ship";
 const clock = (s: number) =>
@@ -733,77 +735,141 @@ export function CircuitBoard({
               fallbackFocus={headingRef}
             />
           )}
-          {selectedTool && (
-            <div
-              className="tool-confirmation"
-              role="region"
-              aria-label="Confirm tool"
-            >
-              <span className="eyebrow">
-                {state.tools?.find((t) => t.id === selectedTool)?.name ??
-                  "Tool"}
-              </span>
-              <p>
-                {selectedTool === "shield"
-                  ? "Activate a shield around the shared ship."
-                  : selectedTool === "hint"
-                    ? "Receive one engine-generated deduction clue."
-                    : selectedTool === "dual-scanner"
-                      ? `Choose two crew circuits and one Sam number. ${toolTargets.length}/2 targets selected.`
-                      : "Choose a crew circuit and enter a threshold."}
-              </p>
-              {selectedTool === "scanner" && (
-                <label>
-                  Threshold
-                  <input
-                    aria-label="Scanner threshold"
-                    type="number"
-                    value={threshold}
-                    onChange={(e) => setThreshold(e.target.value)}
-                  />
-                </label>
-              )}
-              <button
-                className="text-button"
-                onClick={() => {
-                  setSelectedTool(null);
-                  setToolTargets([]);
-                }}
-              >
-                Cancel tool
-              </button>
-              <button
-                className="primary"
-                disabled={
-                  !canAct ||
-                  busy ||
-                  !adapter.useTool ||
-                  (selectedTool === "scanner" &&
-                    (toolTargets.length !== 1 ||
-                      !Number.isSafeInteger(Number(threshold)))) ||
-                  (selectedTool === "dual-scanner" &&
-                    (toolTargets.length !== 2 || !ownSlot))
-                }
-                onClick={() => {
-                  if (!canAct || busy) return;
-                  setBusy(true);
-                  try {
-                    adapter.useTool?.(selectedTool, {
-                      targets: toolTargets,
-                      token: state.toolToken ?? "",
-                      ownId: own,
-                      threshold: Number(threshold),
-                    });
-                    clearSelection();
-                  } finally {
-                    setBusy(false);
+          {selectedTool &&
+            (() => {
+              const tool = state.tools?.find((t) => t.id === selectedTool);
+              const needsTargets =
+                selectedTool === "scanner" || selectedTool === "dual-scanner";
+              const ready =
+                !needsTargets ||
+                (selectedTool === "scanner"
+                  ? toolTargets.length === 1 &&
+                    Number.isSafeInteger(Number(threshold))
+                  : toolTargets.length === 2 && !!ownSlot);
+              return (
+                <ConfirmationDialog
+                  title={tool?.name ?? "Confirm tool"}
+                  eyebrow={
+                    <>
+                      <span aria-hidden="true">{icons[selectedTool]}</span>{" "}
+                      SAM’S TOOLKIT
+                    </>
                   }
-                }}
-              >
-                Confirm tool
-              </button>
-            </div>
-          )}
+                  description={
+                    <>
+                      {descriptions[selectedTool]}{" "}
+                      <strong>{tool?.remaining ?? 0} {tool?.remaining === 1 ? "use" : "uses"} remaining.</strong>
+                    </>
+                  }
+                  busy={busy || !canAct}
+                  confirmDisabled={!ready || !adapter.useTool}
+                  confirmLabel="Confirm Tool"
+                  onCancel={() => {
+                    setSelectedTool(null);
+                    setToolTargets([]);
+                  }}
+                  onConfirm={() => {
+                    if (!canAct || busy || !ready) return;
+                    setBusy(true);
+                    try {
+                      adapter.useTool?.(selectedTool, {
+                        targets: toolTargets,
+                        token: state.toolToken ?? "",
+                        ownId: own,
+                        threshold: Number(threshold),
+                      });
+                      clearSelection();
+                    } finally {
+                      setBusy(false);
+                    }
+                  }}
+                  fallbackFocus={headingRef}
+                >
+                  {needsTargets && (
+                    <fieldset className="tool-modal-targets">
+                      <legend>
+                        {selectedTool === "dual-scanner"
+                          ? "Choose two crew circuits"
+                          : "Choose a crew circuit"}
+                      </legend>
+                      {state.rooms.map((room) => (
+                        <label key={room.id}>
+                          {room.name}
+                          <select
+                            aria-label={room.name + " tool target"}
+                            value=""
+                            onChange={(e) => {
+                              if (e.target.value) selectTarget(e.target.value);
+                            }}
+                          >
+                            <option value="">Select hidden slot…</option>
+                            {room.slots.map(
+                              (slot, i) =>
+                                tool?.targetIds?.includes(slot.id) &&
+                                !slot.restored && (
+                                  <option key={slot.id} value={slot.id}>
+                                    {room.name} · slot {i + 1}
+                                    {toolTargets.includes(slot.id)
+                                      ? " · selected"
+                                      : ""}
+                                  </option>
+                                ),
+                            )}
+                          </select>
+                        </label>
+                      ))}
+                      <p aria-live="polite">
+                        {toolTargets.length
+                          ? toolTargets
+                              .map((id) => {
+                                const room = state.rooms.find((r) =>
+                                  r.slots.some((s) => s.id === id),
+                                )!;
+                                return (
+                                  room.name +
+                                  " · slot " +
+                                  (room.slots.findIndex((s) => s.id === id) + 1)
+                                );
+                              })
+                              .join(", ")
+                          : "No targets selected"}
+                      </p>
+                    </fieldset>
+                  )}
+                  {selectedTool === "scanner" && (
+                    <label className="tool-modal-field">
+                      Threshold
+                      <input
+                        aria-label="Scanner threshold"
+                        type="number"
+                        value={threshold}
+                        onChange={(e) => setThreshold(e.target.value)}
+                      />
+                    </label>
+                  )}
+                  {selectedTool === "dual-scanner" && (
+                    <label className="tool-modal-field">
+                      Sam’s numbered circuit
+                      <select
+                        aria-label="Sam tool circuit"
+                        value={own}
+                        onChange={(e) => setOwn(e.target.value)}
+                      >
+                        <option value="">Select Sam’s circuit…</option>
+                        {state.ownCircuits
+                          .filter((s) => !s.restored)
+                          .map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.value} · slot{" "}
+                              {state.ownCircuits.indexOf(s) + 1}
+                            </option>
+                          ))}
+                      </select>
+                    </label>
+                  )}
+                </ConfirmationDialog>
+              );
+            })()}
           {state.toolClue && (
             <p className="sam-clue" role="status">
               ✧ {state.toolClue}

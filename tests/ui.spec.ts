@@ -34,6 +34,13 @@ async function solve(page: Page) {
     await waitHuman(page);
     if (await page.getByRole("heading", { name: /Mission Complete/ }).count())
       return;
+    for (const tile of await page.locator(".number-marker").all()) {
+      const partial = /[1-3] of 4 resolved/.test(
+        (await tile.getAttribute("aria-label")) ?? "",
+      );
+      if (partial)
+        await expect(tile).toHaveCSS("background-color", "rgb(32, 44, 67)");
+    }
     // Test driver reasons ONLY from rendered public board. No private board or seed lookup.
     const circuits = (await page.locator(".rack").evaluateAll((rows) =>
       rows.flatMap((row) =>
@@ -355,13 +362,13 @@ test("Easy toolkit locks, limited hint and shield interception from real engine"
   ).toBeDisabled();
   await expect(page.locator(".wire-tile[title]")).toHaveCount(0);
   await page.getByRole("button", { name: /Sam’s Hint/ }).click();
-  await page.getByRole("button", { name: "Confirm tool" }).dblclick();
+  await page.getByRole("button", { name: "Confirm Tool" }).dblclick();
   await expect(page.locator(".sam-clue")).toBeVisible();
   await expect(page.getByRole("button", { name: /Sam’s Hint/ })).toBeDisabled();
   await expect(page.locator(".turn-pill")).toContainText("Sam's");
   await page.clock.runFor(800);
   await page.getByRole("button", { name: /Emergency Shield/ }).click();
-  await page.getByRole("button", { name: "Confirm tool" }).click();
+  await page.getByRole("button", { name: "Confirm Tool" }).click();
   await expect(
     page.getByLabel("Emergency Shield active", { exact: true }),
   ).toBeVisible();
@@ -390,9 +397,9 @@ test("later-mission scanner and dual scanner target controls use real tool outco
   await launch(page, "/tests/fixtures/real.html?tools=all");
   await page.getByRole("button", { name: /Circuit Scanner/ }).click();
   await expect(page.locator(".tool-target")).toHaveCount(32);
-  await page.locator('[data-slot="nova-0"]').click();
+  await page.getByLabel("Nova tool target").selectOption("nova-0");
   await page.getByRole("spinbutton", { name: "Scanner threshold" }).fill("6");
-  await page.getByRole("button", { name: "Confirm tool" }).click();
+  await page.getByRole("button", { name: "Confirm Tool" }).click();
   await expect(page.locator('[data-slot="nova-0"] .scanner-beam')).toHaveCount(
     1,
   );
@@ -406,9 +413,9 @@ test("later-mission scanner and dual scanner target controls use real tool outco
   await page.getByRole("button", { name: "Begin Mission" }).click();
   await page.locator('[data-slot="sam-0"]').click();
   await page.getByRole("button", { name: /Dual Scanner/ }).click();
-  await page.locator('[data-slot="pip-0"]').click();
-  await page.locator('[data-slot="nova-15"]').click();
-  await page.getByRole("button", { name: "Confirm tool" }).click();
+  await page.getByLabel("Pip tool target").selectOption("pip-0");
+  await page.getByLabel("Nova tool target").selectOption("nova-15");
+  await page.getByRole("button", { name: "Confirm Tool" }).click();
   await expect(page.locator('[data-slot="sam-0"]')).toHaveClass(/cleared/);
   await expect(page.locator('[data-slot="pip-0"]')).toHaveClass(/cleared/);
   await expect(page.locator('[data-slot="nova-15"] strong')).toHaveText("?");
@@ -551,6 +558,11 @@ test("number tracker shows four-copy completion from actual Self-Match", async (
   await expect(
     page.getByLabel("Number 2: 4 of 4 resolved, completed", { exact: true }),
   ).toHaveClass(/number-complete/);
+  await expect(page.locator(".number-complete")).toHaveCSS(
+    "background-color",
+    "rgb(34, 197, 94)",
+  );
+  await expect(page.locator(".number-complete small")).toHaveText("4/4");
   await expect(page.locator(".number-marker")).toHaveCount(12);
   await expect(page.locator(".special-marker")).toHaveCount(0);
   await page.screenshot({
@@ -633,7 +645,7 @@ test("red lab warns only about public identities and red trigger has distinct fa
   );
   await expect(page.locator(".turn-pill")).toContainText("Sam's");
   await page.getByRole("button", { name: /Emergency Shield/ }).click();
-  await page.getByRole("button", { name: "Confirm tool" }).click();
+  await page.getByRole("button", { name: "Confirm Tool" }).click();
   await page.clock.runFor(800);
   await page.locator('[data-slot="sam-0"]').click();
   await page.locator('[data-slot="nova-13"]').click();
@@ -817,4 +829,54 @@ test("connection modal overlays without pushing the board, traps focus, cancels 
   await expect(dialog).toHaveCount(0);
   await expect(page.getByText("85%", { exact: true })).toBeVisible();
   await expect(page.locator(".attack-vfx")).toHaveCount(1);
+});
+
+test("tools share a centered modal and cancel preserves charges and board layout", async ({
+  page,
+}, info) => {
+  await launch(page, "/tests/fixtures/real.html?tools=all");
+  for (const name of [
+    "Circuit Scanner",
+    "Dual Scanner",
+    "Emergency Shield",
+    "Sam’s Hint",
+  ]) {
+    const button = page.getByRole("button", { name: new RegExp(name) });
+    const before = await button.textContent();
+    const board = await page.locator(".rack-sam").boundingBox();
+    await button.click();
+    const modal = page.getByRole("dialog", { name, exact: true });
+    await expect(modal).toBeVisible();
+    await expect(modal).toHaveJSProperty("open", true);
+    expect(await modal.evaluate((el) => el.matches(":modal"))).toBe(true);
+    expect(
+      await modal.evaluate(
+        (el) => getComputedStyle(el, "::backdrop").backgroundColor,
+      ),
+    ).not.toBe("rgba(0, 0, 0, 0)");
+    const box = await modal.boundingBox();
+    const viewport = page.viewportSize()!;
+    expect(Math.abs(box!.x + box!.width / 2 - viewport.width / 2)).toBeLessThan(
+      2,
+    );
+    expect(box!.width).toBeLessThan(viewport.width);
+    expect((await page.locator(".rack-sam").boundingBox())!.height).toBe(
+      board!.height,
+    );
+    await expect(
+      modal.getByRole("button", { name: "Cancel", exact: true }),
+    ).toBeFocused();
+    await page.keyboard.press("Shift+Tab");
+    await expect(modal.locator(":focus")).toHaveCount(1);
+    await page.screenshot({
+      path: `docs/previews/${info.project.name}-tool-modal.png`,
+    });
+    await page.keyboard.press("Escape");
+    await expect(modal).toHaveCount(0);
+    await expect(button).toHaveText(before);
+    await expect(button).toBeFocused();
+  }
+  await expect(
+    page.locator(".number-marker:not(.number-complete)").first(),
+  ).toHaveCSS("background-color", "rgb(32, 44, 67)");
 });

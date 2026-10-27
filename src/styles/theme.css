@@ -3186,3 +3186,54 @@ dialog::backdrop {
     width: 5px;
   }
 }
+
+/* Tracker completion comes exclusively from the public engine complete flag. */
+.number-marker {
+  background: #202c43;
+}
+.number-marker.number-complete {
+  background: #22c55e;
+  border-color: #86efac;
+  color: #082b1c;
+}
+.number-complete small,
+.number-complete strong span {
+  color: #082b1c;
+}
+.number-complete .copy-pips i {
+  background: #082b1c;
+  border-color: #082b1c;
+}
+.tool-modal-targets {
+  border: 1px solid #9db9d455;
+  border-radius: 12px;
+  margin: 18px 0;
+  padding: 12px;
+}
+.tool-modal-targets legend,
+.tool-modal-field,
+.tool-modal-targets label {
+  font-size: 0.8rem;
+}
+.tool-modal-targets label,
+.tool-modal-field {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+}
+.connection-dialog select,
+.tool-modal-field input {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid #aec7d577;
+  border-radius: 9px;
+  padding: 10px;
+  background: #202c43;
+  color: #f7f0de;
+  font: inherit;
+}
+
+.number-complete .tracker-badge.badge-possible {
+  background-color: #202c43;
+  opacity: 1;
+}

@@ -1,11 +1,11 @@
 import type { ToolId, ToolView } from "../types/presentation";
-const descriptions: Record<ToolId, string> = {
+export const descriptions: Record<ToolId, string> = {
   scanner: "Compare a hidden circuit against your chosen threshold.",
   "dual-scanner": "Test two hidden circuits against one of Sam’s numbers.",
   shield: "Absorb the next incorrect connection without losing hull.",
   hint: "Ask Sam for one limited deduction clue.",
 };
-const icons: Record<ToolId, string> = {
+export const icons: Record<ToolId, string> = {
   scanner: "⌁",
   "dual-scanner": "⌘",
   shield: "⬡",
