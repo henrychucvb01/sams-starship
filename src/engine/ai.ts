@@ -23,7 +23,7 @@ export function decideAI(view: AIObservation): AIAction {
  if(view.specialRules&&(view.specialRules.yellowPositions.length||view.specialRules.redPositions.length))return decideSpecialAI(view);
  const domains=deduce(view), own=view.circuits.filter(c=>c.owner===view.self&&!c.restored);
  for(const c of own){const target=view.circuits.find(t=>t.owner!==view.self&&!t.restored&&domains[t.id].length===1&&domains[t.id][0]===c.value);if(target)return {type:'connect',ownId:c.id,targetId:target.id,number:c.value!};}
- for(const c of own){const resolved=view.reveals.filter(r=>r.value===c.value&&view.circuits.find(t=>t.id===r.circuitId)?.restored).length;const held=own.filter(t=>t.value===c.value);if(held.length===view.copies-resolved)return {type:'solo',number:c.value!};}
+ for(const c of own){const resolved=view.reveals.filter(r=>r.value===c.value&&view.circuits.find(t=>t.id===r.circuitId)?.restored).length;const held=own.filter(t=>t.value===c.value);if([2,4].includes(held.length)&&held.length===view.copies-resolved)return {type:'solo',number:c.value!};}
  // A truthful self-disclosure costs shared energy; no arbitrary guesses on uncertain turns.
  if(view.energy>0){const tile=own.find(c=>!view.reveals.some(r=>r.circuitId===c.id));if(tile)return {type:'clue',circuitId:tile.id};}
  return {type:'pass'};
@@ -34,8 +34,8 @@ function decideSpecialAI(view:AIObservation):AIAction{
  const own=view.circuits.filter(c=>c.owner===view.self&&!c.restored),rules=view.specialRules!;
  const same=(a:import('./types').Circuit,b:import('./types').Circuit)=>a.kind==='yellow'?b.kind==='yellow':(a.kind??'blue')==='blue'&&b.kind==='blue'&&a.value===b.value;
  for(const c of own.filter(c=>c.kind!=='red')){const target=view.circuits.find(t=>t.owner!==view.self&&!t.restored&&t.value!==undefined&&same(c,t));if(target)return {type:'connect',ownId:c.id,targetId:target.id,number:c.value!};}
- for(const c of own.filter(c=>c.kind!=='red')){const total=c.kind==='yellow'?rules.yellowPositions.length:view.copies;const resolved=view.circuits.filter(t=>t.restored&&same(c,t)).length;const held=own.filter(t=>same(c,t));if(held.length>=2&&held.length===total-resolved)return {type:'solo',number:c.value!};}
- if(rules.redSafeRule==='after-other-circuits'&&view.circuits.filter(c=>c.restored&&c.kind!=='red').length===(view.max-view.min+1)*view.copies+rules.yellowPositions.length){const red=own.find(c=>c.kind==='red');if(red)return {type:'safeRed',circuitId:red.id};}
+ for(const c of own.filter(c=>c.kind!=='red')){const total=c.kind==='yellow'?rules.yellowPositions.length:view.copies;const resolved=view.circuits.filter(t=>t.restored&&same(c,t)).length;const held=own.filter(t=>same(c,t));if([2,4].includes(held.length)&&held.length===total-resolved)return {type:'solo',number:c.value!};}
+ if(rules.redSafeRule==='after-other-circuits'&&own.length>0&&own.every(c=>c.kind==='red')){const red=own.find(c=>c.kind==='red');if(red)return {type:'safeRed',circuitId:red.id};}
  if(view.energy>0){const c=own.find(c=>!view.reveals.some(r=>r.circuitId===c.id));if(c)return {type:'clue',circuitId:c.id};}
  return {type:'pass'};
 }
