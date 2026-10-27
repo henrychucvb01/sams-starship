@@ -1,3 +1,4 @@
+import type { CrewFeaturesView } from "./crewPresentation";
 export type ToolId = "scanner" | "dual-scanner" | "shield" | "hint";
 export type ToolView = {
   id: ToolId;
@@ -15,7 +16,12 @@ export type ToolCommand = {
 };
 /** Provisional presentation contract. Agent 1 must map its public, redacted state here. */
 export type Expression =
-  "happy" | "worried" | "thinking" | "surprised" | "celebrating" | "sad";
+  | "happy"
+  | "worried"
+  | "thinking"
+  | "surprised"
+  | "celebrating"
+  | "sad";
 export type Slot = {
   id: string;
   restored: boolean;
@@ -28,6 +34,7 @@ export type Slot = {
 };
 export type MissionView = {
   missionName?: string;
+  crewFeatures?: CrewFeaturesView;
   tracker?: {
     numbers: {
       number: number;
@@ -73,7 +80,8 @@ export type MissionView = {
       | "shield"
       | "blocked"
       | "hint"
-      | "critical";
+      | "critical"
+      | "isolate";
     slotIds: string[];
     participant?: "sam" | "nova" | "pip";
   }[];
@@ -95,6 +103,15 @@ export type MissionView = {
   };
 };
 export interface MissionAdapter {
+  performCrewAction?: (
+    id: string,
+    choices: Record<string, string[]>,
+    token: string,
+  ) => void | Promise<void>;
+  selectStartingInformation?: (
+    id: string,
+    token: string,
+  ) => void | Promise<void>;
   getSnapshot: () => MissionView;
   subscribe: (listener: () => void) => () => void;
   connect: (ownId: string, targetId: string) => void;

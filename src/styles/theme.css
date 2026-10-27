@@ -3237,3 +3237,285 @@ dialog::backdrop {
   background-color: #202c43;
   opacity: 1;
 }
+
+/* Compact crew support stays with the existing circuit racks. */
+.character-card {
+  flex-wrap: wrap;
+}
+.character-name {
+  min-width: 0;
+}
+.character-name h2 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.info-trigger {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 8px;
+  border-radius: 12px;
+  background: #b9eed914;
+  border: 1px solid #b9eed944;
+  color: var(--mint);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.info-trigger svg {
+  width: 24px;
+  height: 24px;
+}
+.info-trigger:focus-visible {
+  outline: 3px solid #fff0bd;
+  outline-offset: 3px;
+}
+.captain-badge {
+  color: #ffdf83;
+  background: #e9b85f18;
+  border-color: #ffdf8370;
+  animation: command-reveal 0.4s ease-out;
+}
+.crew-tooltip {
+  position: fixed;
+  z-index: 1000;
+  width: min(300px, calc(100vw - 24px));
+  max-height: calc(100dvh - 24px);
+  overflow: auto;
+  box-sizing: border-box;
+  padding: 16px;
+  border: 1px solid #b9eed97a;
+  border-radius: 14px;
+  background: #202c43;
+  color: #f7f0de;
+  box-shadow: 0 10px 40px #050a2888;
+  font:
+    14px/1.55 system-ui,
+    sans-serif;
+}
+.crew-tooltip p {
+  margin: 8px 0 0;
+  color: #d4e0ed;
+}
+.personal-power {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+.personal-power strong {
+  display: block;
+  font-size: 0.65rem;
+}
+.personal-power small {
+  display: block;
+  font-size: 0.55rem;
+  color: #b5c8d8;
+  margin-top: 5px;
+}
+.power-used {
+  opacity: 0.65;
+}
+.shared-equipment {
+  padding: 15px;
+  border: 1px solid #b9eed930;
+  background: #172139;
+  border-radius: 15px;
+  margin: 14px 0;
+}
+.equipment-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.equipment-heading small {
+  font-size: 0.5rem;
+  color: #b5c8d8;
+}
+.equipment-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+.equipment-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  border-radius: 12px;
+  padding: 12px;
+  background: #202c43;
+  border: 1px solid #adc4e733;
+}
+.equipment-card h3 {
+  font-size: 0.8rem;
+}
+.equipment-card p,
+.equipment-card small {
+  font-size: 0.65rem;
+  line-height: 1.5;
+  color: #b5c8d8;
+}
+.equipment-locked {
+  background: #151e31;
+}
+.equipment-ready {
+  border-color: #b9eed9;
+  box-shadow: 0 0 14px #b9eed920;
+  animation: equipment-unlock 0.65s ease-out;
+}
+.equipment-used {
+  opacity: 0.6;
+}
+.information-marker {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  display: grid;
+  place-items: center;
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  background: #fff0bd;
+  color: #202c43;
+  font: 700 12px system-ui;
+  animation: command-reveal 0.3s ease-out;
+}
+.starting-information {
+  padding: 20px;
+  background: #263c50;
+  border: 1px solid #b9eed9;
+  border-radius: 16px;
+  margin: 16px 0;
+}
+.starting-information h2 {
+  font-size: 1.2rem;
+  margin: 12px 0;
+}
+.starting-information p {
+  font-size: 0.8rem;
+  line-height: 1.6;
+  margin: 14px 0;
+  color: #d4e0ed;
+}
+.starting-options {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 5px;
+}
+.starting-option {
+  min-width: 65px;
+  min-height: 70px;
+  border: 1px solid #a8caff77;
+  background: #202c43;
+  color: #e8f0fa;
+  border-radius: 10px;
+}
+.starting-option strong,
+.starting-option small {
+  display: block;
+}
+.starting-option small {
+  font-size: 0.6rem;
+  margin-top: 6px;
+}
+.starting-option.chosen {
+  outline: 3px solid var(--mint);
+}
+.action-circuit-list {
+  font-size: 0.8rem;
+  line-height: 1.8;
+  padding-left: 20px;
+  color: #d4e0ed;
+}
+@keyframes command-reveal {
+  from {
+    transform: scale(0.7);
+    opacity: 0.2;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+@keyframes equipment-unlock {
+  from {
+    box-shadow: 0 0 0 4px #b9eed970;
+  }
+  to {
+    box-shadow: 0 0 14px #b9eed920;
+  }
+}
+@media (max-width: 620px) {
+  .personal-power {
+    width: 100%;
+    margin: 6px 0 0;
+  }
+  .character-card .rack-direction {
+    display: none;
+  }
+  .personal-power .secondary {
+    margin-left: auto;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .captain-badge,
+  .information-marker,
+  .equipment-ready {
+    animation: none;
+  }
+}
+.reduce-motion .captain-badge,
+.reduce-motion .information-marker,
+.reduce-motion .equipment-ready {
+  animation: none;
+}
+.power-used {
+  animation: power-activation 0.65s ease-out;
+}
+.wire-isolate {
+  animation: safe-powerdown 0.65s ease-out;
+}
+.maintenance-isolate {
+  color: var(--mint);
+  border-color: var(--mint);
+}
+@keyframes power-activation {
+  from {
+    filter: brightness(1.8);
+  }
+  to {
+    filter: brightness(1);
+  }
+}
+@keyframes safe-powerdown {
+  from {
+    box-shadow: 0 0 24px #f6b0a4;
+    filter: brightness(1.4);
+  }
+  to {
+    box-shadow: none;
+    filter: saturate(0.2);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .power-used,
+  .wire-isolate {
+    animation: none;
+  }
+}
+.reduce-motion .power-used,
+.reduce-motion .wire-isolate {
+  animation: none;
+}
+
+.equipment-lock {
+  width: 14px;
+  height: 14px;
+  vertical-align: -2px;
+}

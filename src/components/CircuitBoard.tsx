@@ -12,6 +12,10 @@ import type {
   Slot,
   ToolId,
 } from "../types/presentation";
+import { CharacterCard, EquipmentCards } from "./CrewCards";
+import { CrewActionDialog } from "./CrewActionDialog";
+import { StartingInformation } from "./StartingInformation";
+import type { CrewActionView } from "../types/crewPresentation";
 import { NumberTracker } from "./NumberTracker";
 import { ConnectionDialog } from "./ConnectionDialog";
 import { ConnectionOverlay } from "./ConnectionOverlay";
@@ -88,6 +92,8 @@ export function CircuitBoard({
     cy: number;
   } | null>(null);
   const suppressClick = useRef(false);
+  const [crewAction, setCrewAction] = useState<CrewActionView | null>(null);
+  const [utility, setUtility] = useState<"solo" | null>(null);
   const [dragNotice, setDragNotice] = useState("");
   const [own, setOwn] = useState("");
   const [target, setTarget] = useState("");
@@ -99,6 +105,8 @@ export function CircuitBoard({
     (s) => s.id === secondOwn && !s.restored,
   );
   const clearSelection = () => {
+    setCrewAction(null);
+    setUtility(null);
     setDrag(null);
     pointer.current = null;
     setOwn("");
@@ -166,7 +174,10 @@ export function CircuitBoard({
     });
   }, [effect]);
   const turn = state.board?.turn;
-  const canAct = state.status === "playing" && (!turn || turn === "sam");
+  const canAct =
+    state.status === "playing" &&
+    !state.crewFeatures?.startingInformation?.pending &&
+    (!turn || turn === "sam");
   function beginDrag(
     event: ReactPointerEvent<HTMLButtonElement>,
     slot: Slot,
@@ -350,8 +361,21 @@ export function CircuitBoard({
     setBusy(true);
     setDragNotice("");
     try {
-      if (secondOwnSlot) adapter.selfMatch?.([ownSlot.id, secondOwnSlot.id]);
-      else if (targetSlot) adapter.connect(ownSlot.id, targetSlot.id);
+      if (secondOwnSlot) {
+        const eligibility = state.selfMatches?.find(
+          (m) =>
+            m.circuitIds.includes(ownSlot.id) &&
+            m.circuitIds.includes(secondOwnSlot.id),
+        );
+        if (!eligibility?.eligible) {
+          setDragNotice(
+            eligibility?.explanation ??
+              "Self-Connection is unavailable.",
+          );
+          return;
+        }
+        adapter.selfMatch?.([ownSlot.id, secondOwnSlot.id]);
+      } else if (targetSlot) adapter.connect(ownSlot.id, targetSlot.id);
       setSecondOwn("");
       setDeclaring(false);
       setOwn("");
@@ -450,6 +474,18 @@ export function CircuitBoard({
             {slot.type === "red" ? "⚠" : slot.type === "yellow" ? "◆" : "●"}
           </span>
         )}
+        {state.crewFeatures?.startingInformation?.markers
+          .filter((m) => m.circuitId === slot.id)
+          .map((m) => (
+            <span
+              key={m.circuitId}
+              className="information-marker"
+              title={m.label}
+              aria-label={m.label}
+            >
+              i
+            </span>
+          ))}
         <span className="wire-pins" aria-hidden="true" />
         <strong>
           {slot.type === "yellow"
@@ -538,6 +574,30 @@ export function CircuitBoard({
       <div className="deduction-layout">
         <div className="board-main">
           <NumberTracker tracker={state.tracker} />
+          <StartingInformation
+            state={state}
+            adapter={adapter}
+            headingRef={headingRef}
+          />
+          <EquipmentCards
+            equipment={state.crewFeatures?.equipment ?? []}
+            canAct={canAct && !!adapter.performCrewAction}
+            onAction={setCrewAction}
+          />
+          {crewAction && (
+            <CrewActionDialog
+              key={crewAction.id}
+              action={crewAction}
+              token={state.crewFeatures?.actionToken ?? ""}
+              onCancel={() => setCrewAction(null)}
+              fallbackFocus={headingRef}
+              onConfirm={async (id, choices, token) => {
+                await adapter.performCrewAction?.(id, choices, token);
+                setCrewAction(null);
+              }}
+            />
+          )}
+
           <p className="drag-instructions">
             Tap two circuits, or drag from Sam’s grip ⠿ to a target. Every
             connection needs confirmation.
@@ -581,27 +641,32 @@ export function CircuitBoard({
                 key={room.id}
                 aria-label={`${room.name} circuit rack`}
               >
-                <div className="rack-label">
-                  <span
-                    className="portrait"
-                    aria-label={`${room.name} temporary avatar`}
-                  >
-                    {room.name[0]}
-                  </span>
-                  <div>
-                    <h2>
-                      {room.name} <small>AI CREWMATE</small>
-                    </h2>
-                    <p>
+                <CharacterCard
+                  crew={
+                    state.crewFeatures?.crew.find((c) => c.id === room.id) ?? {
+                      id: room.id,
+                      name: room.name,
+                    }
+                  }
+                  captain={state.crewFeatures?.captainId === room.id}
+                  portrait={
+                    <span
+                      className="portrait"
+                      aria-label={room.name + " temporary avatar"}
+                    >
+                      {room.name[0]}
+                    </span>
+                  }
+                  detail={
+                    <>
                       {turn === room.id ? "● ACTIVE TURN" : room.system} ·{" "}
                       {room.slots.filter((s) => !s.restored).length} circuits
                       left
-                    </p>
-                  </div>
-                  <span className="rack-direction">
-                    {state.board?.ordered ? "LOW → HIGH" : "ENGINE ORDER"}
-                  </span>
-                </div>
+                    </>
+                  }
+                  onAction={setCrewAction}
+                  canAct={false}
+                />
                 <div
                   className="rack-scroll"
                   tabIndex={0}
@@ -627,32 +692,40 @@ export function CircuitBoard({
               className={`rack rack-sam ${turn === "sam" ? "active-rack" : ""}`}
               aria-label="Sam circuit rack"
             >
-              <div className="rack-label">
-                <Sam
-                  expression={
-                    effect?.kind === "hint"
-                      ? "thinking"
-                      : effect?.kind === "damage" || effect?.kind === "critical"
-                        ? "surprised"
-                        : state.hull <= 25
-                          ? "worried"
-                          : effect?.kind === "success"
-                            ? "happy"
-                            : "thinking"
+              <CharacterCard
+                crew={
+                  state.crewFeatures?.crew.find((c) => c.id === "sam") ?? {
+                    id: "sam",
+                    name: "Sam",
                   }
-                />
-                <div>
-                  <h2>
-                    Sam <small>YOU</small>
-                  </h2>
-                  <p>
+                }
+                captain={state.crewFeatures?.captainId === "sam"}
+                portrait={
+                  <Sam
+                    expression={
+                      effect?.kind === "hint"
+                        ? "thinking"
+                        : effect?.kind === "damage" ||
+                            effect?.kind === "critical"
+                          ? "surprised"
+                          : state.hull <= 25
+                            ? "worried"
+                            : effect?.kind === "success"
+                              ? "happy"
+                              : "thinking"
+                    }
+                  />
+                }
+                detail={
+                  <>
                     {turn === "sam" ? "● YOUR TURN" : "Your circuits"} ·{" "}
                     {state.ownCircuits.filter((s) => !s.restored).length}{" "}
                     circuits left
-                  </p>
-                </div>
-                <span className="rack-direction">LOW → HIGH</span>
-              </div>
+                  </>
+                }
+                onAction={setCrewAction}
+                canAct={canAct && !!adapter.performCrewAction}
+              />
               <div
                 className="rack-scroll"
                 tabIndex={0}
@@ -725,6 +798,29 @@ export function CircuitBoard({
                   : undefined
               }
               busy={busy || !canAct}
+              confirmDisabled={
+                !!secondOwnSlot &&
+                !state.selfMatches?.some(
+                  (m) =>
+                    m.eligible &&
+                    m.circuitIds.includes(ownSlot.id) &&
+                    m.circuitIds.includes(secondOwnSlot.id),
+                )
+              }
+              resolvedSlots={
+                secondOwnSlot
+                  ? state.selfMatches
+                      ?.find(
+                        (m) =>
+                          m.circuitIds.includes(ownSlot.id) &&
+                          m.circuitIds.includes(secondOwnSlot.id),
+                      )
+                      ?.circuitIds.map(
+                        (id) =>
+                          `Sam · slot ${state.ownCircuits.findIndex((s) => s.id === id) + 1}`,
+                      )
+                  : undefined
+              }
               onConfirm={connect}
               onCancel={() => {
                 suppressClick.current = false;
@@ -758,7 +854,10 @@ export function CircuitBoard({
                   description={
                     <>
                       {descriptions[selectedTool]}{" "}
-                      <strong>{tool?.remaining ?? 0} {tool?.remaining === 1 ? "use" : "uses"} remaining.</strong>
+                      <strong>
+                        {tool?.remaining ?? 0}{" "}
+                        {tool?.remaining === 1 ? "use" : "uses"} remaining.
+                      </strong>
                     </>
                   }
                   busy={busy || !canAct}
@@ -890,31 +989,76 @@ export function CircuitBoard({
             </button>
             <button
               className="secondary compact"
-              disabled={!canAct || !ownSlot}
+              disabled={
+                !canAct ||
+                !ownSlot ||
+                !state.selfMatches?.some(
+                  (m) => m.eligible && m.circuitIds.includes(ownSlot.id),
+                )
+              }
+              onClick={() => setUtility("solo")}
+            >
+              Self-Connection
+            </button>
+            <button
+              className="secondary compact"
+              disabled={
+                !canAct ||
+                !state.crewFeatures?.isolateOverload?.available ||
+                !adapter.performCrewAction
+              }
               onClick={() => {
-                setDeclaring(false);
-                adapter.resolveSolo(own);
+                if (state.crewFeatures?.isolateOverload)
+                  setCrewAction(state.crewFeatures.isolateOverload);
               }}
             >
-              Resolve selected number alone
+              Isolate Overload
             </button>
-            {ownSlot?.type === "red" && (
-              <button
-                className="secondary compact"
-                disabled={!canAct}
-                onClick={() => {
-                  adapter.isolateRed?.(ownSlot.id);
-                  clearSelection();
-                }}
-              >
-                Isolate selected red
-              </button>
-            )}
             <small>
-              Solo works only when Sam holds every remaining copy. The engine
-              checks eligibility.
+              {ownSlot
+                ? state.selfMatches?.find((m) =>
+                    m.circuitIds.includes(ownSlot.id),
+                  )?.explanation
+                : "Select one of Sam’s circuits to check Self-Connection eligibility."}
+            </small>
+            <small>
+              {state.crewFeatures?.isolateOverload?.reason ??
+                "Safe isolation is unavailable in this build."}
             </small>
           </div>
+          {utility === "solo" &&
+            ownSlot &&
+            (() => {
+              const eligibility = state.selfMatches?.find((m) =>
+                m.circuitIds.includes(ownSlot.id),
+              );
+              return (
+                <ConfirmationDialog
+                  title="Self-Connection"
+                  eyebrow="SAM’S CIRCUITS"
+                  description="Clear the remaining matching circuits held by Sam. All listed slots clear together."
+                  busy={busy || !canAct}
+                  confirmDisabled={!eligibility?.eligible}
+                  confirmLabel="Confirm"
+                  onCancel={() => setUtility(null)}
+                  fallbackFocus={headingRef}
+                  onConfirm={() => {
+                    adapter.resolveSolo(own);
+                    clearSelection();
+                  }}
+                >
+                  <p>{eligibility?.explanation}</p>
+                  <ul className="action-circuit-list">
+                    {eligibility?.circuitIds.map((id) => (
+                      <li key={id}>
+                        Sam · slot{" "}
+                        {state.ownCircuits.findIndex((s) => s.id === id) + 1}
+                      </li>
+                    ))}
+                  </ul>
+                </ConfirmationDialog>
+              );
+            })()}
           <details className="deduction-log">
             <summary>
               Deduction log · {state.history?.length ?? state.messages.length}{" "}

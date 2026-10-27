@@ -10,6 +10,8 @@ export function ConnectionDialog({
   selfMatch,
   explanation,
   busy,
+  confirmDisabled = false,
+  resolvedSlots,
   onConfirm,
   onCancel,
   fallbackFocus,
@@ -21,6 +23,8 @@ export function ConnectionDialog({
   selfMatch: boolean;
   explanation?: string;
   busy: boolean;
+  confirmDisabled?: boolean;
+  resolvedSlots?: string[];
   onConfirm: () => void | Promise<void>;
   onCancel: () => void;
   fallbackFocus: RefObject<HTMLHeadingElement | null>;
@@ -40,6 +44,7 @@ export function ConnectionDialog({
         </>
       }
       busy={busy}
+      confirmDisabled={confirmDisabled}
       confirmLabel="Connect"
       confirmAriaLabel={selfMatch ? "Connect Pair" : "Connect circuits"}
       onConfirm={onConfirm}
@@ -92,6 +97,11 @@ export function ConnectionDialog({
           </div>
         </div>
       </div>
+      {selfMatch && resolvedSlots && (
+        <p className="dialog-match-note">
+          Circuits to clear: {resolvedSlots.join(", ")}
+        </p>
+      )}
       {selfMatch && explanation && (
         <p className="dialog-match-note">{explanation}</p>
       )}

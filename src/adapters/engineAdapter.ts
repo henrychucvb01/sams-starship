@@ -230,7 +230,7 @@ export function createEngineAdapter(
       effects: s.history
         .flatMap<NonNullable<MissionView["effects"]>[number]>((e) => {
           if (e.type === "RED_SAFELY_RESOLVED")
-            return [{ id: e.index, kind: "success", slotIds: e.circuitIds }];
+            return [{ id: e.index, kind: "isolate", slotIds: e.circuitIds }];
           if (e.type === "RED_TRIGGERED")
             return [{ id: e.index, kind: "critical", slotIds: e.circuitIds }];
           if (e.type === "CONNECTION_SUCCESS")

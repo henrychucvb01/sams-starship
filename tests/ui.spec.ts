@@ -342,10 +342,13 @@ test("Self-Match clears all four; rejected pair explains eligibility without dam
   await page.getByRole("button", { name: "Begin Mission" }).click();
   await page.locator('[data-slot="sam-0"]').click();
   await page.locator('[data-slot="sam-1"]').click();
-  await page.getByRole("button", { name: "Connect Pair", exact: true }).click();
-  await expect(page.locator(".board-instruction")).toContainText(
-    "all remaining copies",
-  );
+  await expect(
+    page.getByRole("button", { name: "Connect Pair", exact: true }),
+  ).toBeDisabled();
+  await expect(
+    page.getByRole("dialog", { name: "Are you sure?" }),
+  ).toContainText("all remaining copies");
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(page.getByText("100%", { exact: true })).toBeVisible();
   await expect(page.locator(".turn-pill")).toContainText("Sam's");
   await expect(page.locator(".attack-vfx")).toHaveCount(0);
@@ -639,10 +642,15 @@ test("red lab warns only about public identities and red trigger has distinct fa
     "hidden",
   );
   await page.locator('[data-slot="sam-5"]').click();
-  await page.getByRole("button", { name: "Isolate selected red" }).click();
-  await expect(page.locator(".board-instruction")).toContainText(
-    "Safe resolution",
-  );
+  await expect(
+    page.getByRole("button", { name: "Isolate Overload", exact: true }),
+  ).toBeDisabled();
+  await expect(
+    page.getByText(
+      "Safe isolation is unavailable in this build.",
+      { exact: true },
+    ),
+  ).toBeVisible();
   await expect(page.locator(".turn-pill")).toContainText("Sam's");
   await page.getByRole("button", { name: /Emergency Shield/ }).click();
   await page.getByRole("button", { name: "Confirm Tool" }).click();
@@ -879,4 +887,164 @@ test("tools share a centered modal and cancel preserves charges and board layout
   await expect(
     page.locator(".number-marker:not(.number-complete)").first(),
   ).toHaveCSS("background-color", "rgb(32, 44, 67)");
+});
+
+test("crew presentation contract: captain identity, accessible explanations, equipment and power confirmations", async ({
+  page,
+}, info) => {
+  await launch(page, "/tests/fixtures/crew.html");
+  await expect(page.locator(".rack-pip .captain-badge")).toHaveCount(1);
+  await expect(page.locator(".rack-sam .captain-badge")).toHaveCount(0);
+  const captain = page.locator(".rack-pip .captain-badge");
+  if (info.project.name === "desktop") {
+    await captain.hover();
+    await expect(page.getByRole("tooltip")).toContainText("Captain");
+  }
+  await captain.focus();
+  await expect(page.getByRole("tooltip")).toContainText(
+    "Leads the crew and takes the first turn.",
+  );
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("tooltip")).toHaveCount(0);
+  await captain.click();
+  await expect(page.getByRole("tooltip")).toContainText("Captain");
+  await page
+    .getByRole("button", { name: "Test: Captain Nova", exact: true })
+    .click();
+  await expect(page.locator(".rack-nova .captain-badge")).toHaveCount(1);
+  await expect(page.locator(".rack-pip .captain-badge")).toHaveCount(0);
+  const powerInfo = page
+    .locator(".rack-sam")
+    .getByRole("button", { name: "Sam: Presentation Test Power information" });
+  await powerInfo.focus();
+  await expect(page.getByRole("tooltip")).toContainText(
+    "TEST INPUT: choose one target.",
+  );
+  await expect(page.getByRole("tooltip")).toContainText("1 use remaining");
+  await page.keyboard.press("Escape");
+  await page
+    .locator(".rack-sam")
+    .getByRole("button", { name: "Use power", exact: true })
+    .click();
+  const powerModal = page.getByRole("dialog", {
+    name: "Presentation Test Power",
+    exact: true,
+  });
+  await expect(powerModal).toBeVisible();
+  await expect(
+    powerModal.getByRole("button", { name: "Confirm", exact: true }),
+  ).toBeDisabled();
+  await powerModal
+    .getByLabel("Crew target", { exact: true })
+    .selectOption("nova-0");
+  await page.keyboard.press("Escape");
+  await expect(page.getByLabel("Fixture action count")).toHaveText("0");
+  await page
+    .locator(".rack-sam")
+    .getByRole("button", { name: "Use power", exact: true })
+    .click();
+  await powerModal
+    .getByLabel("Crew target", { exact: true })
+    .selectOption("pip-0");
+  await powerModal
+    .getByRole("button", { name: "Confirm", exact: true })
+    .dblclick();
+  await expect(page.getByLabel("Fixture action count")).toHaveText("1");
+  await expect(page.locator(".rack-sam .personal-power")).toContainText("Used");
+  await expect(page.locator(".equipment-locked")).toContainText("0/2");
+  await expect(
+    page.getByRole("button", { name: "Use equipment", exact: true }),
+  ).toBeDisabled();
+  await page
+    .getByRole("button", { name: "Test: unlock equipment", exact: true })
+    .click();
+  await expect(page.locator(".equipment-ready")).toContainText("2/2");
+  await page
+    .getByRole("button", {
+      name: "Presentation Test Equipment equipment information",
+      exact: true,
+    })
+    .click();
+  await expect(page.getByRole("tooltip")).toContainText("Unlock number 2: 2/2");
+  await page.keyboard.press("Escape");
+  await page
+    .getByRole("button", { name: "Use equipment", exact: true })
+    .click();
+  const equipmentModal = page.getByRole("dialog", {
+    name: "Presentation Test Equipment",
+    exact: true,
+  });
+  await equipmentModal
+    .getByLabel("Crew target", { exact: true })
+    .selectOption("nova-0");
+  await equipmentModal
+    .getByRole("button", { name: "Confirm", exact: true })
+    .click();
+  await expect(page.locator(".equipment-used")).toContainText("Used");
+  await expect(page.getByLabel("Fixture action count")).toHaveText("2");
+  await page.screenshot({
+    path: `docs/previews/${info.project.name}-crew-cards.png`,
+    fullPage: true,
+  });
+});
+
+test("starting information requires explicit selection and confirmation, and self-connection previews all four slots", async ({
+  page,
+}) => {
+  await launch(page, "/tests/fixtures/crew.html");
+  await page.getByRole("button", { name: "Test: setup", exact: true }).click();
+  await expect(
+    page.getByRole("button", {
+      name: "Review starting information",
+      exact: true,
+    }),
+  ).toBeDisabled();
+  await expect(page.locator(".rack-sam .wire-tile").first()).toBeDisabled();
+  await page
+    .getByRole("button", {
+      name: "Share starting number 2, slot 3",
+      exact: true,
+    })
+    .click();
+  await page
+    .getByRole("button", { name: "Review starting information", exact: true })
+    .click();
+  const setupModal = page.getByRole("dialog", {
+    name: "Reveal starting information?",
+    exact: true,
+  });
+  await expect(setupModal).toContainText("Sam’s number 2, slot 3");
+  await setupModal.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(page.getByLabel("Fixture action count")).toHaveText("0");
+  await expect(page.locator(".rack-sam .information-marker")).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Review starting information", exact: true })
+    .click();
+  await setupModal
+    .getByRole("button", { name: "Confirm", exact: true })
+    .dblclick();
+  await expect(page.getByLabel("Fixture action count")).toHaveText("1");
+  await expect(
+    page.locator('[data-slot="sam-2"] .information-marker'),
+  ).toHaveCount(1);
+  await expect(
+    page.locator('[data-slot="nova-0"] .information-marker'),
+  ).toHaveCount(1);
+  await page.locator('[data-slot="sam-2"]').click();
+  await page
+    .getByRole("button", { name: "Self-Connection", exact: true })
+    .click();
+  const solo = page.getByRole("dialog", {
+    name: "Self-Connection",
+    exact: true,
+  });
+  await expect(solo.locator("li")).toHaveCount(4);
+  await solo.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(page.locator(".rack-sam .wire-tile.cleared")).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Self-Connection", exact: true })
+    .click();
+  await solo.getByRole("button", { name: "Confirm", exact: true }).dblclick();
+  await expect(page.locator(".rack-sam .wire-tile.cleared")).toHaveCount(4);
+  await expect(page.getByText("100%", { exact: true })).toBeVisible();
 });

@@ -93,3 +93,26 @@ The review update is committed on agent/game-ui only; it must not be merged into
 `ConfirmationDialog` now owns the native top-layer modal lifecycle for connections and all tool confirmations: backdrop, scroll lock, initial Cancel focus, focus trapping/restoration, Escape cancellation and synchronous submission lock. `CircuitBoard` supplies tool descriptions, remaining uses and public target selectors inside that modal. Selecting or canceling a tool never invokes an engine command; only Confirm Tool calls the existing adapter with its rendered token. Scanner choices expose crewmate names and slot indices only. Tool results continue through existing engine events and animations.
 
 Number tiles use navy until the adapter's `complete` value is true, then green with dark contrasting number, checkmark, pips and count. Embedded special badges retain their public positions and certainty styles. No engine modules or gameplay rules changed.
+
+### Crew support UI — pending Agent 1 API (review blocker)
+
+The published agent/game-engine head at implementation time remains 0f43bcd. Its GameState and GAME_ENGINE_API.md have no Captain, character powers, shared equipment, starting-information phase/commands, or public safe-red eligibility. This UI change does **not** invent those rules, select a Captain, generate starting markers, calculate unlock progress, or pretend those features are integrated. The existing adapter does not populate the new feature fields. Integration and real-engine verification of those features remain blocked until Agent 1 publishes the update. Do not merge this preparation as a completed rules integration.
+
+src/types/crewPresentation.ts is a **proposed presentation contract**, not a competing engine API:
+- crewFeatures.captainId is rendered beside the matching row name. The UI never defaults to Sam.
+- crew[] describes existing participants and their optional engine-supported power. Descriptions, requirements, availability, used flags and remaining uses must be mapped from Agent 1, not authored in React.
+- equipment[] supplies unlock number, resolved/total progress, locked/ready/used status and the same public action description. No UI progress counter is stored.
+- Every action supplies public labeled target options and required selection counts. CrewActionDialog renders those options and sends opaque IDs, choices and the rendered actionToken through performCrewAction. Agent 1's actual command names still need binding in the adapter.
+- startingInformation supplies pending, legal blue availableIds, description and public marker IDs/labels. StartingInformation lets Sam explicitly choose, review, cancel or confirm through selectStartingInformation(id, token). No random default. Normal board controls are disabled while setup is pending. Agent 1 must own timer/setup/AI progression.
+- isolateOverload must provide authoritative availability, reason, targets and consequences. The action stays disabled until supplied. The old engine's different after-other-circuits rule must not be silently presented as the owner's newly requested active-player rule.
+- The existing public selfMatches contract is integrated now: both pair review and Self-Connection use engine eligibility and list all affected own slots. Invalid eligibility disables confirmation. Cancel calls no engine method. The legacy resolveSolo and selfMatch commands remain the source of validation.
+
+Components:
+- CharacterCard replaces only the existing rack header content; portraits remain approved placeholders. CaptainBadge uses an original SVG command emblem.
+- InfoPopover exposes identical explanations via hover, focus and tap, with Escape/outside dismissal and viewport-constrained portal placement.
+- EquipmentCards is a compact shared area separate from personal powers.
+- All actions reuse ConfirmationDialog: native top-layer positioning, backdrop, focus trap/return, Escape, duplicate lock and explicit confirmation.
+- Existing RED_SAFELY_RESOLVED maps to a safe-powerdown isolate visual; catastrophic red and normal success/damage events remain unchanged. New engine power/unlock/setup events still require adapter mapping once published.
+- NumberTracker and its navy/green states and embedded badges are unchanged.
+
+Testing: existing engine/adapter tests and real-engine board flows remain in use. tests/fixtures/crewHarness.tsx explicitly provides synthetic **presentation contract inputs only**, over a real-engine board, for UI testing of currently unpublished fields. Its test power/equipment names are deliberately labeled as test inputs; commands only record fixture interactions. It is not imported into production, contains no matching/damage/AI rules, and is not a substitute for real-engine integration testing. Remove or align these fixtures once the actual API is published.

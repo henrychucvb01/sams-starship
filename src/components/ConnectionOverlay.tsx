@@ -31,11 +31,13 @@ export function ConnectionOverlay({
             : "⌁"}
       </span>
       <span>
-        {scene.outcome === "success"
-          ? "TERMINAL CONNECTED"
-          : scene.outcome === "critical"
-            ? "CRITICAL CROSS-WIRE"
-            : "TERMINAL RESPONSE"}
+        {scene.outcome === "isolate"
+          ? "OVERLOAD SAFELY ISOLATED"
+          : scene.outcome === "success"
+            ? "TERMINAL CONNECTED"
+            : scene.outcome === "critical"
+              ? "CRITICAL CROSS-WIRE"
+              : "TERMINAL RESPONSE"}
       </span>
     </div>
   );
