@@ -7,7 +7,7 @@ test("deployed game supports board navigation, finite tools and actual turns", a
   await page.goto("/");
   await page.getByRole("button", { name: "Let's Fly!" }).click();
   await page.getByRole("button", {name:"Continue solo", exact:true}).click();
-  await page.getByRole("button", { name: "Start mission" }).click();
+  await page.getByRole("button", { name: "Play mode" }).click();
   await page.getByRole("button", { name: "Begin Mission" }).click();
   await expect(page.locator(".wire-tile")).toHaveCount(48);
   await expect(page.locator(".captain-badge")).toHaveCount(1);
@@ -51,7 +51,7 @@ test("deployed game supports board navigation, finite tools and actual turns", a
   ).toBeDisabled();
   await page.getByRole("button", { name: "Leave mission" }).click();
   await expect(
-    page.getByRole("heading", { name: /Every connection/ }),
+    page.getByRole("heading", { name: /Choose your game mode/ }),
   ).toBeVisible();
   expect(errors).toEqual([]);
 });

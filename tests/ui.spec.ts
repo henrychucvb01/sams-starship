@@ -12,7 +12,7 @@ async function launch(page: Page, path = "/") {
   await page.goto(path);
   await page.getByRole("button", { name: "Let's Fly!" }).click();
   await page.getByRole("button", {name:"Continue solo", exact:true}).click();
-  await page.getByRole("button", { name: "Start mission" }).click();
+  await page.getByRole("button", { name: "Play mode" }).click();
   await page.getByRole("button", { name: "Begin Mission" }).click();
   await finishSetup(page);
   await waitHuman(page);
@@ -356,7 +356,7 @@ test("Self-Match clears all four; rejected pair explains eligibility without dam
   await page.goto("/tests/fixtures/real.html");
   await page.getByRole("button", { name: "Let's Fly!" }).click();
   await page.getByRole("button", {name:"Continue solo", exact:true}).click();
-  await page.getByRole("button", { name: "Start mission" }).click();
+  await page.getByRole("button", { name: "Play mode" }).click();
   await page.getByRole("button", { name: "Begin Mission" }).click();
   await finishSetup(page);
   await waitHuman(page);
@@ -433,7 +433,7 @@ test("later-mission scanner and dual scanner target controls use real tool outco
   await page.goto("/tests/fixtures/real.html?tools=all");
   await page.getByRole("button", { name: "Let's Fly!" }).click();
   await page.getByRole("button", {name:"Continue solo", exact:true}).click();
-  await page.getByRole("button", { name: "Start mission" }).click();
+  await page.getByRole("button", { name: "Play mode" }).click();
   await page.getByRole("button", { name: "Begin Mission" }).click();
   await finishSetup(page);
   await waitHuman(page);

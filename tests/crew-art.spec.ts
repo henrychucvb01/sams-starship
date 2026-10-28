@@ -34,7 +34,7 @@ test('spaceport artwork loads; five live equal-sized options preserve selected s
  await expect(page.getByRole('heading',{name:/Your crew.*launchpad/ })).toBeVisible();
  await page.getByRole('button',{name:/Back to crew selection/}).click();
  await page.locator('input[value="1"][name="crew-size"]').check();await page.getByRole('button',{name:'Continue solo',exact:true}).click();
- await expect(page.getByRole('button',{name:/Start mission/})).toBeEnabled();expect(errors).toEqual([]);
+ await expect(page.getByRole('button',{name:/Play mode/})).toBeEnabled();expect(errors).toEqual([]);
 });
 test('spaceport keeps radio keyboard focus, native labels and reduced-motion controls',async({page})=>{
  await page.emulateMedia({reducedMotion:'reduce'});await page.goto('/');await page.getByRole('button',{name:"Let's Fly!"}).click();

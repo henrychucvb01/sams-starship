@@ -63,3 +63,9 @@ Approved spaceport/character/button exports replace only the crew-selection pres
 Validation: 76 engine/server/adapter tests and 74 desktop/mobile browser checks passed using the real local durable room service, including 2–5 human lobbies, private hands, refresh recovery, solo victory/retry and full multiplayer completion/replay. Approved asset checks, production build and strict server TypeScript checks passed. Artwork loading, selected/unselected state, equal 44px-or-larger targets, all five counts, native keyboard focus, reduced motion, no overlap and no horizontal overflow were checked at widths 320/390/768/1280. Desktop/mobile screenshots were inspected.
 
 Two additional desktop/mobile smoke checks against the compiled production build passed.
+
+## Game Modes card styling (2026-10-28)
+
+The former mission-selection presentation is labeled Game Modes, with MODE numbering and a Play mode action. ModeArtwork reuses approved transparent crew sprites with decorative system icons; scoped navy/gold panels and the approved terminal background match the boarding screen. Existing engine IDs, difficulty validation, launch callbacks, training links and multiplayer behavior are unchanged. Future modes/difficulties remain visibly locked. No artwork was generated.
+
+Production release build and approved title-asset checks passed. 58 desktop/mobile browser checks passed, covering mode artwork, 320/390/768/1280 layouts, disabled states, keyboard launch, reduced motion, training navigation, existing solo victory/retry, tools, powers, safe red, trackers and title/crew flows. Two additional compiled-production smoke checks passed. Screenshots of both layouts were inspected.

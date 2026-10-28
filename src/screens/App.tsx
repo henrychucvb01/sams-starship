@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { CrewSelection } from "../multiplayer/CrewSelection";
 import { RoomScreen, multiplayerOrigin } from "../multiplayer/RoomScreen";
 import { hasSavedRoom } from "../multiplayer/roomClient";
+import { ModeArtwork, ModeLock } from "../components/ModeArtwork";
 import { TitleScreen } from "../components/TitleScreen";
 import { CircuitBoard } from "../components/CircuitBoard";
 import { Ship, Sam } from "../components/Ship";
@@ -10,7 +11,7 @@ import {
   TRAINING_MISSIONS,
 } from "../adapters/engineAdapter";
 import type { MissionAdapter } from "../types/presentation";
-const missions = [
+const gameModes = [
   [
     "Restore the Lights",
     "Matching numbers",
@@ -162,29 +163,30 @@ export function App({
         {screen === "crew" && <CrewSelection headingRef={heading} onBack={menu} onSolo={() => setScreen("missions")} onMultiplayer={count => {setHumanCount(count);setScreen("multiplayer");}}/>}
         {screen === "multiplayer" && <RoomScreen playerCount={humanCount} headingRef={heading} onBack={() => setScreen("crew")}/>}
         {screen === "missions" && (
-          <section className="page mission-page">
+          <section className="page mission-page game-modes-page">
             <button className="text-button back" onClick={menu}>
               ← Back to the ship
             </button>
-            <div className="eyebrow">MISSION CONTROL</div>
+            <div className="eyebrow">CIRCUIT RESCUE · GAME MODES</div>
             <h1 ref={heading} tabIndex={-1}>
-              Every connection
-              <br />
-              <em>brings us closer.</em>
+              Choose your <em>game mode.</em>
             </h1>
             <p className="muted">
-              Choose a system to restore. Your crew is standing by.
+              A little crew. A big adventure. Choose how you’ll rescue the ship.
             </p>
             <div className="mission-grid">
-              {missions.map(([name, type, description, number, icon], i) => (
+              {gameModes.map(([name, type, description, number], i) => (
                 <article
                   className={`mission-card ${i ? "unavailable" : "available"}`}
                   key={name}
                 >
                   <div className="mission-top">
-                    <span className="mission-icon">{icon}</span>
-                    <span>MISSION {number}</span>
+                    <span className="mode-number">MODE {number}</span>
+                    <span className={`mode-status ${i === 0 && difficulty === "Easy" ? "mode-ready" : "mode-locked"}`}>
+                      {i === 0 && difficulty === "Easy" ? <><span className="mode-ready-dot" /> Ready</> : <><ModeLock /> Coming Soon</>}
+                    </span>
                   </div>
+                  <ModeArtwork index={i} />
                   <h2>{name}</h2>
                   <span className="tag">{type}</span>
                   <p>{description}</p>
@@ -214,9 +216,9 @@ export function App({
                     }}
                   >
                     {i === 0 && difficulty === "Easy"
-                      ? "Start mission"
+                      ? "Play mode"
                       : "Coming Soon"}{" "}
-                    <span>{i === 0 ? "→" : "⌑"}</span>
+                    <span aria-hidden="true">{i === 0 && difficulty === "Easy" ? "→" : <ModeLock />}</span>
                   </button>
                 </article>
               ))}
