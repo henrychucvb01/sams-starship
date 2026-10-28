@@ -9,6 +9,7 @@ test("title keeps launch controls available through calm, chase and escape", asy
   await expect(page.locator(".has-approved-logo img")).toBeVisible();
   await expect(page.locator(".flight-ship img")).toHaveCount(1);
   await expect(page.locator(".flying-muncher img")).toHaveCount(8);
+  expect(await page.locator(".flying-muncher img").evaluateAll(images => images.every(image => (image as HTMLImageElement).src.includes("space-muncher-chibi")))).toBe(true);
   expect(await page.locator(".panic-title img").evaluateAll(images => images.every(image => (image as HTMLImageElement).complete && (image as HTMLImageElement).naturalWidth > 0))).toBe(true);
   await expect(page.locator("header")).toHaveCount(0);
   await expect(page.locator(".panic-kicker, .panic-tagline, .panic-caption")).toHaveCount(0);
@@ -20,10 +21,9 @@ test("title keeps launch controls available through calm, chase and escape", asy
     }, ms);
     await expect(fly).toBeVisible();
     await expect(fly).toBeEnabled();
-    // Eight seconds is the short fade into the chase; the steady chase is opaque.
-    const swarmOpacity = Number(await page.locator(".muncher-swarm").evaluate(el => getComputedStyle(el).opacity));
-    if (ms === 8000) expect(swarmOpacity).toBeLessThan(.2);
-    else expect(swarmOpacity).toBeCloseTo(ms === 11000 || ms === 13000 ? 1 : 0, 3);
+    const creatures = await page.locator(".flying-muncher").evaluateAll(elements => elements.map(el => Number(getComputedStyle(el).opacity)));
+    if (ms === 11000 || ms === 13000) expect(creatures.every(opacity => opacity === 1)).toBe(true);
+    if (ms === 0 || ms === 17000) expect(creatures.every(opacity => opacity === 0)).toBe(true);
     if (ms === 0) await page.screenshot({ path: `docs/previews/${info.project.name}-title-calm.png`, fullPage: true });
     const clickable = await fly.evaluate(el => {
       const r = el.getBoundingClientRect();
@@ -34,8 +34,8 @@ test("title keeps launch controls available through calm, chase and escape", asy
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.locator(".flight-scene").evaluate(el => el.getAnimations({ subtree: true }).forEach(a => { a.currentTime = 11000; }));
   await page.screenshot({ path: `docs/previews/${info.project.name}-title-chase.png`, fullPage: true });
-  await page.locator(".flight-scene").evaluate(el => el.getAnimations({ subtree: true }).forEach(a => { a.currentTime = 14000; }));
-  await expect(page.locator(".escape-trail")).toHaveCSS("opacity", "0.9");
+  await page.locator(".flight-scene").evaluate(el => el.getAnimations({ subtree: true }).forEach(a => { a.currentTime = 13500; }));
+  expect(Number(await page.locator(".escape-trail").evaluate(el => getComputedStyle(el).opacity))).toBeGreaterThan(.8);
   await page.screenshot({ path: `docs/previews/${info.project.name}-title-escape.png`, fullPage: true });
   await fly.focus();
   await page.keyboard.press("Enter");
@@ -45,6 +45,47 @@ test("title keeps launch controls available through calm, chase and escape", asy
   await expect(page.locator(".wire-tile")).toHaveCount(48);
   await expect(page.locator(".starting-options")).toBeVisible();
   expect(errors).toEqual([]);
+});
+
+test("creatures steer independently, ship dodges twice and returns from outside the scene", async ({ page }, info) => {
+  await page.goto("/");
+  const seek = async (time: number) => page.locator(".flight-scene").evaluate((el, ms) => {
+    el.getAnimations({ subtree: true }).forEach(a => { a.pause(); a.currentTime = ms; });
+  }, time);
+  const shipPose = () => page.locator(".flight-ship").evaluate(el => {
+    const m = new DOMMatrix(getComputedStyle(el).transform);
+    return { x: m.m41, y: m.m42, bank: Math.atan2(m.b, m.a) * 180 / Math.PI, opacity: Number(getComputedStyle(el).opacity) };
+  });
+  await seek(9500);
+  const up = await shipPose();
+  await seek(11050);
+  const down = await shipPose();
+  expect(up.y).toBeLessThan(-30);
+  expect(up.bank).toBeLessThan(-15);
+  expect(down.y).toBeGreaterThan(30);
+  expect(down.bank).toBeGreaterThan(15);
+  const first = await page.locator(".flying-muncher").evaluateAll(elements => elements.map(el => {
+    const m = new DOMMatrix(getComputedStyle(el).transform); return [m.m41, m.m42];
+  }));
+  await seek(12000);
+  const next = await page.locator(".flying-muncher").evaluateAll(elements => elements.map(el => {
+    const m = new DOMMatrix(getComputedStyle(el).transform); return [m.m41, m.m42];
+  }));
+  const directions = next.map((p, i) => Math.atan2(p[1] - first[i][1], p[0] - first[i][0]));
+  expect(new Set(directions.map(a => Math.round(a * 3))).size).toBeGreaterThan(3);
+  await expect(page.locator(".muncher-swarm")).toHaveCSS("animation-name", "none");
+  await seek(14800);
+  const offscreen = await page.locator(".flight-ship").boundingBox();
+  expect(offscreen!.x + offscreen!.width).toBeLessThan(0);
+  await seek(15700);
+  expect((await shipPose()).opacity).toBe(1);
+  await page.screenshot({ path: `docs/previews/${info.project.name}-title-hyperspeed-return.png`, fullPage: true });
+  await seek(16999);
+  const last = await shipPose();
+  await seek(17000);
+  const start = await shipPose();
+  expect(Math.abs(start.x - last.x) + Math.abs(start.y - last.y)).toBeLessThan(.1);
+  expect(Math.abs(start.bank - last.bank)).toBeLessThan(.1);
 });
 
 test("help, settings, pause and persistent reduced motion work from the title", async ({ page }) => {

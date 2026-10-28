@@ -1,7 +1,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-const required = ["starship-panic-logo", "approved-ship", ...Array.from({ length: 8 }, (_, i) => `space-muncher-${i + 1}`)];
+const required = ["starship-panic-logo", "approved-ship", "space-muncher-chibi"];
 const problems = [];
 let bytes = 0;
 for (const name of required) {

@@ -13,6 +13,16 @@ source = Path(sys.argv[1])
 target = Path(__file__).resolve().parents[1] / 'src/assets/title'
 target.mkdir(parents=True, exist_ok=True)
 
+# Current Muncher is the user's transparent single-character Canva export.
+# Encoding only; do not generate variations or change its approved appearance.
+if len(sys.argv) > 2 and sys.argv[2] == '--chibi':
+    current = Image.open(source / 'Space Muncher — Black No Mouth Chibi.png').convert('RGBA')
+    current = current.crop(current.getchannel('A').getbbox())
+    current.thumbnail((384, 384), Image.Resampling.LANCZOS)
+    current.save(target / 'space-muncher-chibi.webp', quality=91, method=6, exact=True)
+    print('Saved current approved chibi Muncher')
+    sys.exit(0)
+
 def exterior_cutout(path, kind):
     image = Image.open(path).convert('RGBA')
     rgb = np.asarray(image)[:, :, :3].astype(np.int16)
