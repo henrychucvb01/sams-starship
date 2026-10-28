@@ -6,7 +6,7 @@ Human rooms use the authenticated room service described in `MULTIPLAYER_API.md`
 
 `MultiplayerBoard` receives only that authenticated viewer's redacted `RoomView`. It renders separate server-provided rack indices, opaque participant IDs, human names/presence, Captain, persistent public markers, own values and public foreign disclosures. Own-only Solo and red isolation use server eligibility. Personal powers and shared equipment use the server's target IDs, availability, charges and tool token. Double Detector targets share both owner and rack; own circuits may come from either own rack. Connections, starting information, powers, equipment, sharing, Solo, isolation and replay all use the reusable accessible centered confirmation dialog. Tap, keyboard and drag select commands for review; drag never submits. Hidden values are never used in React eligibility or exposed in markup.
 
-The original number tracker, embedded special badges, circuit effects, ship damage/shield/critical visuals, tooltip controls and reduced-motion behavior are reused. Crew portraits on the selection screen are original code-native SVG astronauts; approved title artwork is unchanged.
+The original number tracker, embedded special badges, circuit effects, ship damage/shield/critical visuals, tooltip controls and reduced-motion behavior are reused. The selection screen uses the approved pastel spaceport, separate Sam/Fox/Bunny/Cat/Bear transparent sprites and reusable blue/gold button artwork. Counts, labels and navigation remain functional HTML. The room/board portrait component and approved title artwork are unchanged. See src/assets/crew/README.md for provenance.
 
 ## Local browser testing
 
@@ -55,3 +55,11 @@ Agent 1 merged the tested UI with the engine without changing game behavior and 
 - Four desktop/mobile checks passed with the real local durable room service on port 8789: a complete two-human public-clue mission, Captain rotation on replay, leaving/forgetting a seat and creating a different crew.
 - The forget-seat test now waits for both the rendered new room code and its asynchronous response observer before comparing codes. This removes a test timing race without changing production behavior.
 - The default build was restored after testing the configured-online build. Approved title assets, strict frontend/server type checks, UTF-8 source validation and Git whitespace checks passed. Docker deployment files are prepared; Docker execution and production backend hosting are deferred.
+
+## Spaceport artwork integration (2026-10-28)
+
+Approved spaceport/character/button exports replace only the crew-selection presentation. Selection still routes through the existing onSolo/onMultiplayer callbacks; room, session, private circuit, Captain, equipment, power and matching logic is unchanged. Five native radio options use the same two image assets, with HTML numbers/labels and an HTML Continue action. The five character sprites remain separate for lightweight CSS animation.
+
+Validation: 76 engine/server/adapter tests and 74 desktop/mobile browser checks passed using the real local durable room service, including 2–5 human lobbies, private hands, refresh recovery, solo victory/retry and full multiplayer completion/replay. Approved asset checks, production build and strict server TypeScript checks passed. Artwork loading, selected/unselected state, equal 44px-or-larger targets, all five counts, native keyboard focus, reduced motion, no overlap and no horizontal overflow were checked at widths 320/390/768/1280. Desktop/mobile screenshots were inspected.
+
+Two additional desktop/mobile smoke checks against the compiled production build passed.

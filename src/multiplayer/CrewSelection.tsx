@@ -1,5 +1,21 @@
 import { useState, type CSSProperties, type RefObject } from "react";
 import "../styles/multiplayer.css";
+import "../styles/crew-selection.css";
+import sam from "../assets/crew/sam.webp";
+import fox from "../assets/crew/fox.webp";
+import bunny from "../assets/crew/bunny.webp";
+import cat from "../assets/crew/cat.webp";
+import bear from "../assets/crew/bear.webp";
+import idleButton from "../assets/crew/selection-blue.webp";
+import selectedButton from "../assets/crew/selection-gold.webp";
+import continueButton from "../assets/crew/continue-gold.webp";
+const boardingCrew = [
+  { name: "Sam", image: sam },
+  { name: "Fox", image: fox },
+  { name: "Bunny", image: bunny },
+  { name: "Cat", image: cat },
+  { name: "Bear", image: bear },
+];
 export function CrewPortrait({
   index = 0,
   name,
@@ -92,30 +108,31 @@ export function CrewSelection({
 }) {
   const [count, setCount] = useState(1);
   return (
-    <section className="crew-selection page" aria-labelledby="assemble-title">
+    <section className="crew-selection spaceport-selection page" aria-labelledby="assemble-title">
       <button className="text-button back" onClick={onBack}>
         ← Back to the ship
       </button>
-      <span className="eyebrow">CIRCUIT RESCUE · CREW MANIFEST</span>
+      <div className="boarding-pass-tag"><span aria-hidden="true">✦</span> SPACEPORT TERMINAL <span className="boarding-gate">GATE 01</span></div>
       <h1 id="assemble-title" tabIndex={-1} ref={headingRef}>
         Assemble your <em>crew!</em>
       </h1>
       <p className="crew-selection-intro">
-        Little astronauts. Big teamwork. How many humans are coming aboard?
+        Big adventures begin with a little crew. Who’s coming aboard?
       </p>
-      <div className="crew-parade" aria-hidden="true">
-        {Array.from({ length: count === 1 ? 3 : count }, (_, i) => (
-          <div key={i} className="parade-member">
-            <CrewPortrait index={i} />
-            <span>
-              {count === 1
-                ? ["You", "Nova · AI", "Pip · AI"][i]
-                : i === 0
-                  ? "You"
-                  : `Friend ${i}`}
-            </span>
-          </div>
-        ))}
+      <div className="crew-parade spaceport-parade" aria-hidden="true">
+        {boardingCrew.map((character, i) => {
+          const active = i < (count === 1 ? 3 : count);
+          return (
+            <div key={character.name} data-character={character.name.toLowerCase()}
+              className={`boarding-character ${active ? "parade-member aboard" : "standby"}`}
+              style={{ "--crew-index": i } as CSSProperties}>
+              <div className="character-sprite">
+                <img src={character.image} alt="" width="400" height="440" draggable="false" />
+              </div>
+              <span className="character-nameplate">{character.name}</span>
+            </div>
+          );
+        })}
       </div>
       <fieldset className="crew-size-picker">
         <legend>Choose your crew size</legend>
@@ -125,16 +142,19 @@ export function CrewSelection({
               className={`crew-size-option ${count === n ? "selected" : ""}`}
               key={n}
             >
+              <img className="crew-option-art" src={count === n ? selectedButton : idleButton}
+                width="320" height="320" alt="" draggable="false" />
               <input
                 type="radio"
+                aria-label={n === 1 ? "1 — Solo + AI" : `${n} — Players`}
                 name="crew-size"
                 value={n}
                 checked={count === n}
                 onChange={() => setCount(n)}
               />
               <strong>{n}</strong>
-              <span>{n === 1 ? "Solo + AI" : `${n} players`}</span>
-              <small>{n === 1 ? "YOU + NOVA + PIP" : "HUMANS ONLY"}</small>
+              <span>{n === 1 ? "Solo + AI" : "Players"}</span>
+
             </label>
           ))}
         </div>
@@ -161,11 +181,12 @@ export function CrewSelection({
         </small>
       </div>
       <button
-        className="primary crew-continue"
+        className="primary crew-continue spaceport-continue"
         onClick={() => (count === 1 ? onSolo() : onMultiplayer(count))}
       >
-        {count === 1 ? "Continue solo" : `Continue with ${count} players`}{" "}
-        <span aria-hidden="true">→</span>
+        <img src={continueButton} alt="" width="900" height="270" draggable="false" />
+        <span className="continue-label">{count === 1 ? "Continue solo" : `Continue with ${count} players`}</span>
+        <span className="continue-arrow" aria-hidden="true">→</span>
       </button>
     </section>
   );

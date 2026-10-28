@@ -4,7 +4,7 @@ export default defineConfig({
   testDir: "tests",
   testMatch: process.env.STARSHIP_TEST_BASE_URL
     ? "deployed.spec.ts"
-    : ["ui.spec.ts", "crew-ui.spec.ts", "title.spec.ts", "multiplayer-ui.spec.ts"],
+    : ["ui.spec.ts", "crew-ui.spec.ts", "title.spec.ts", "multiplayer-ui.spec.ts", "crew-art.spec.ts"],
   use: {
     baseURL: process.env.STARSHIP_TEST_BASE_URL ?? `http://127.0.0.1:${localPort}`,
     channel: process.env.STARSHIP_BROWSER_CHANNEL,

@@ -1,0 +1,275 @@
+/* Approved spaceport art; all labels, selection and navigation remain live HTML. */
+.crew-selection.spaceport-selection {
+  position: relative;
+  isolation: isolate;
+  width: calc(100% - 32px);
+  max-width: 1440px;
+  min-height: calc(100svh - 140px);
+  margin: 0 auto;
+  padding: 24px clamp(18px, 6vw, 84px) 30px;
+  border: 1px solid #ffe6b793;
+  border-radius: 28px;
+  overflow: hidden;
+  background: #8582bd url('../assets/crew/spaceport.webp') center 54% / cover no-repeat;
+  box-shadow: 0 16px 60px #080b2f55, inset 0 0 40px #fff0cd35;
+  color: #fff8e6;
+  text-align: center;
+}
+.crew-selection.spaceport-selection::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(180deg, #171b4a85, #1d255408 48%, #1b20475c);
+  pointer-events: none;
+}
+.crew-selection.spaceport-selection .back {
+  display: inline-flex;
+  position: absolute;
+  top: 22px;
+  left: 26px;
+  margin: 0;
+  padding: 9px 13px;
+  min-height: 44px;
+  border: 1px solid #ffe7bd55;
+  border-radius: 20px;
+  background: #24264d8f;
+  color: #fff5dd;
+  font-size: .7rem;
+  z-index: 2;
+}
+.boarding-pass-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 13px;
+  border: 1px solid #fff1d774;
+  border-radius: 20px;
+  background: #29275199;
+  color: #fff1ca;
+  font: 700 .55rem/1.4 system-ui, sans-serif;
+  letter-spacing: .16em;
+}
+.boarding-gate {
+  padding-left: 10px;
+  border-left: 1px solid #ffe5b873;
+  color: #bce4ff;
+}
+.crew-selection.spaceport-selection h1 {
+  margin: 13px 0 6px;
+  font-family: 'Trebuchet MS', system-ui, sans-serif;
+  font-weight: 900;
+  font-size: clamp(2.2rem, 4.2vw, 3.8rem);
+  line-height: 1.1;
+  letter-spacing: -.055em;
+  color: #fff5d7;
+  text-shadow: 0 3px 0 #4e4275, 0 5px 16px #1c174b99;
+}
+.crew-selection.spaceport-selection h1 em { color: #ffe483; font-style: normal; }
+.crew-selection.spaceport-selection .crew-selection-intro {
+  max-width: 620px;
+  color: #fff7e6;
+  font-size: .82rem;
+  font-weight: 600;
+  text-shadow: 0 1px 5px #22214e;
+}
+.crew-selection.spaceport-selection .spaceport-parade {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  align-items: end;
+  gap: 0;
+  width: min(100%, 910px);
+  margin: 12px auto 0;
+  min-height: 0;
+  padding: 0 10px;
+}
+.crew-selection.spaceport-selection .boarding-character {
+  position: relative;
+  width: auto;
+  min-width: 0;
+  margin: 0 -5%;
+  transform: none;
+  animation: boarding-arrival .55s ease-out both;
+  animation-delay: calc(var(--crew-index) * 65ms);
+}
+.crew-selection.spaceport-selection .character-sprite {
+  height: clamp(145px, 18vw, 240px);
+  display: flex;
+  align-items: end;
+  justify-content: center;
+  filter: drop-shadow(0 10px 8px #302c663d);
+  animation: boarding-bob 4s ease-in-out infinite;
+  animation-delay: calc(var(--crew-index) * -620ms);
+}
+.crew-selection.spaceport-selection .character-sprite img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center bottom;
+  transition: filter .25s, opacity .25s;
+}
+.crew-selection.spaceport-selection .standby .character-sprite img {
+  filter: saturate(.72);
+  opacity: .82;
+}
+.crew-selection.spaceport-selection .character-nameplate {
+  display: inline-block;
+  min-width: 60px;
+  padding: 5px 12px;
+  margin-top: 6px;
+  border: 1px solid #fff2ca99;
+  border-radius: 16px;
+  color: #fff8e9;
+  background: #34345fc7;
+  font: 700 .65rem/1.2 'Trebuchet MS', system-ui, sans-serif;
+  box-shadow: 0 3px 8px #2b28542b;
+}
+.crew-selection.spaceport-selection .aboard .character-nameplate { background: #594977df; border-color: #fff0bc; }
+.crew-selection.spaceport-selection .crew-size-picker {
+  width: min(100%, 810px);
+  margin: 18px auto 14px;
+}
+.crew-selection.spaceport-selection .crew-size-picker legend {
+  color: #fff8e6;
+  margin-bottom: 9px;
+  font-size: .67rem;
+  font-weight: 700;
+  text-shadow: 0 1px 6px #28244e;
+}
+.crew-selection.spaceport-selection .crew-size-options { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: clamp(4px, 1.3vw, 16px); }
+.crew-selection.spaceport-selection .crew-size-option,
+.crew-selection.spaceport-selection .crew-size-option.selected {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  padding: 0 0 8%;
+  gap: 2px;
+  min-width: 0;
+  border: none;
+  border-radius: 20%;
+  background: none;
+  isolation: isolate;
+  transition: transform .18s ease, filter .18s ease;
+}
+.crew-selection.spaceport-selection .crew-size-option:hover { transform: translateY(-3px); filter: brightness(1.07); }
+.crew-selection.spaceport-selection .crew-size-option:active { transform: translateY(1px); }
+.crew-selection.spaceport-selection .crew-option-art {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+.crew-selection.spaceport-selection .crew-size-option input { z-index: 2; border-radius: inherit; }
+.crew-selection.spaceport-selection .crew-size-option strong {
+  font: 900 clamp(1.7rem, 3.2vw, 3rem)/1 'Trebuchet MS', system-ui, sans-serif;
+  color: #fff6d7;
+  text-shadow: 0 2px 4px #11163d;
+}
+.crew-selection.spaceport-selection .crew-size-option span {
+  font-size: clamp(.55rem, 1.1vw, .82rem);
+  line-height: 1.25;
+  color: #fff8e6;
+  font-weight: 800;
+  text-shadow: 0 1px 3px #11163d;
+}
+.crew-selection.spaceport-selection .crew-size-option.selected strong,
+.crew-selection.spaceport-selection .crew-size-option.selected span { color: #3c2c51; text-shadow: none; }
+.crew-selection.spaceport-selection .crew-size-option:has(input:focus-visible) {
+  outline: 3px solid #fff7df;
+  outline-offset: 3px;
+  box-shadow: 0 0 0 6px #302c68;
+}
+.crew-selection.spaceport-selection .crew-mode-note {
+  width: min(100%, 620px);
+  max-width: 620px;
+  padding: 10px 18px;
+  margin: 0 auto 8px;
+  background: #24274bd9;
+  border: 1px solid #fce8c778;
+  border-radius: 18px;
+  box-shadow: 0 6px 18px #17193722;
+}
+.crew-selection.spaceport-selection .crew-mode-note strong { font-size: .8rem; color: #fff0c5; }
+.crew-selection.spaceport-selection .crew-mode-note p { margin: 4px 0; font-size: .8rem; line-height: 1.5; color: #fff6e7; }
+.crew-selection.spaceport-selection .crew-mode-note small { display: block; color: #dbdcff; font-size: .7rem; }
+.crew-selection.spaceport-selection .spaceport-continue {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: min(100%, 410px);
+  min-width: 0;
+  min-height: 76px;
+  height: clamp(76px, 7vw, 94px);
+  margin: 0 auto;
+  padding: 12px 38px 12px 70px;
+  border: none;
+  border-radius: 22px;
+  background: none;
+  color: #52376b;
+  box-shadow: none;
+  text-shadow: 0 1px #fff9d2;
+  font-size: clamp(.82rem, 1.4vw, 1rem);
+  font-weight: 900;
+  isolation: isolate;
+  transition: transform .18s, filter .18s;
+}
+.crew-selection.spaceport-selection .spaceport-continue img {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  pointer-events: none;
+}
+.crew-selection.spaceport-selection .continue-arrow { position: absolute; right: 30px; font-size: 1.25rem; }
+.crew-selection.spaceport-selection .spaceport-continue:hover { transform: translateY(-2px); filter: brightness(1.04); }
+.crew-selection.spaceport-selection .spaceport-continue:focus-visible,
+.crew-selection.spaceport-selection .back:focus-visible { outline: 3px solid #fff9e2; outline-offset: 4px; box-shadow: 0 0 0 7px #342963; }
+@keyframes boarding-arrival { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes boarding-bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+@media (max-width: 900px) {
+  .crew-selection.spaceport-selection { padding-top: 68px; }
+  .crew-selection.spaceport-selection .back { top: 18px; left: 18px; }
+  .crew-selection.spaceport-selection .character-sprite { height: clamp(115px, 24vw, 190px); }
+}
+@media (max-width: 550px) {
+  .crew-selection.spaceport-selection { width: calc(100% - 16px); padding: 62px 12px 22px; border-radius: 22px; min-height: calc(100svh - 110px); background-position: 50% center; }
+  .boarding-pass-tag { font-size: .46rem; padding: 6px 9px; gap: 7px; }
+  .crew-selection.spaceport-selection h1 { font-size: clamp(1.8rem, 7.2vw, 2.5rem); margin: 12px 0 8px; }
+  .crew-selection.spaceport-selection .crew-selection-intro { font-size: .85rem; max-width: 310px; }
+  .crew-selection.spaceport-selection .spaceport-parade { padding: 0; margin-top: 18px; }
+  .crew-selection.spaceport-selection .character-sprite { height: clamp(96px, 26vw, 132px); }
+  .crew-selection.spaceport-selection .character-nameplate { font-size: 10px; min-width: 0; padding: 4px 7px; }
+  .crew-selection.spaceport-selection .crew-size-picker { margin-top: 21px; margin-bottom: 12px; }
+  .crew-selection.spaceport-selection .crew-size-options { gap: 2px; }
+  .crew-selection.spaceport-selection .crew-size-option strong { font-size: clamp(1.35rem, 6.5vw, 1.8rem); }
+  .crew-selection.spaceport-selection .crew-size-option span { font-size: 10px; }
+  .crew-selection.spaceport-selection .crew-size-option,
+  .crew-selection.spaceport-selection .crew-size-option.selected { gap: 1px; padding-bottom: 9%; }
+  .crew-selection.spaceport-selection .crew-mode-note { padding: 11px 12px; margin-bottom: 10px; }
+  .crew-selection.spaceport-selection .crew-mode-note strong { font-size: .9rem; }
+  .crew-selection.spaceport-selection .crew-mode-note p { font-size: .8rem; }
+  .crew-selection.spaceport-selection .crew-mode-note small { font-size: .7rem; }
+  .crew-selection.spaceport-selection .spaceport-continue { width: min(100%, 340px); height: 78px; padding-left: 60px; padding-right: 32px; font-size: .8rem; }
+  .crew-selection.spaceport-selection .continue-arrow { right: 23px; font-size: 1.1rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .crew-selection.spaceport-selection .boarding-character, .crew-selection.spaceport-selection .character-sprite { animation: none; }
+  .crew-selection.spaceport-selection .crew-size-option, .crew-selection.spaceport-selection .character-sprite img, .crew-selection.spaceport-selection .spaceport-continue { transition: none; }
+}
+.reduce-motion .crew-selection.spaceport-selection .boarding-character,
+.reduce-motion .crew-selection.spaceport-selection .character-sprite { animation: none; }
+.reduce-motion .crew-selection.spaceport-selection .crew-size-option,
+.reduce-motion .crew-selection.spaceport-selection .character-sprite img,
+.reduce-motion .crew-selection.spaceport-selection .spaceport-continue { transition: none; }
+
+.crew-selection.spaceport-selection .continue-label { font-size: inherit; line-height: 1.2; }
