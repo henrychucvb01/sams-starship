@@ -1,11 +1,11 @@
 /** Revised board-game contracts. Values are present only for own or publicly revealed tiles. */
 export type Difficulty = 'easy' | 'medium' | 'hard';
 export type PuzzleType = 'matching' | 'sequence';
-export type CrewId = 'sam' | 'nova' | 'pip';
+export type CrewId = string;
 export interface Participant { id: CrewId; name: string; control: 'human' | 'ai' }
 export interface Tuning { numberMin: number; numberMax: number; copies: number; hull: number; durationMs: number; damage: number; energy: number; rewardEnergy: number; deductionPasses: number }
 export interface Mission { captainEligible?: CrewId[]; stage?: number; specials?: SpecialRules; id: string; name: string; puzzle: PuzzleType; availability: 'playable' | 'development' }
-export interface Circuit { sortLabel?: string; matchingIdentity?: number | 'yellow' | 'red'; kind?: CircuitKind; id: string; owner: CrewId; position: number; restored: boolean; value?: number }
+export interface Circuit { rack?: number; sortLabel?: string; matchingIdentity?: number | 'yellow' | 'red'; kind?: CircuitKind; id: string; owner: CrewId; position: number; restored: boolean; value?: number }
 export interface PublicReveal { kind?: CircuitKind; circuitId: string; value: number; reason: 'mistake' | 'clue' | 'resolved' | 'startingInformation' }
 export interface IncorrectGuess { participant: CrewId; ownCircuitId: string; targetCircuitId: string; declaredNumber: number; turn: number }
 export type DamageStage = 'normal' | 'light' | 'moderate' | 'critical' | 'destroyed';
@@ -38,5 +38,5 @@ export interface EquipmentAvailability { id: string; toolId: ToolId; unlockNumbe
 export interface EquipmentCommand { token: string; targets?: string[]; threshold?: number; ownId?: string; number?: number }
 export interface CharacterCard { participant: CrewId; powerId: 'doubleDetector'; name: string; description: string; state: 'locked' | 'ready' | 'active' | 'used'; remainingUses: number; requirements: string[]; validTargetIds: string[] }
 /** Only implemented, approved powers can be configured. */
-export interface EngineOptions { equipment?: {toolId: ToolId; unlockNumber: number}[]; random?: () => number; powers?: Partial<Record<CrewId, { powerId: 'doubleDetector'; enabled: boolean }>> }
+export interface EngineOptions { participants?: Participant[]; multiplayer?: boolean; shuffle?: () => number; equipment?: {toolId: ToolId; unlockNumber: number}[]; random?: () => number; powers?: Partial<Record<CrewId, { powerId: 'doubleDetector'; enabled: boolean }>> }
 export type RulesEvent = EventBase & { type: 'STARTING_INFORMATION' | 'POWER_ACTIVATED' | 'POWER_USED' | 'EQUIPMENT_UNLOCKED' | 'EQUIPMENT_USED' | 'CATASTROPHIC_OVERLOAD'; participant?: CrewId; circuitIds: string[]; equipmentId?: string; powerId?: string; number?: number };

@@ -78,7 +78,11 @@ export function CharacterCard({
   detail,
   onAction,
   canAct,
+  self,
+  controlLabel,
 }: {
+  self?: boolean;
+  controlLabel?: string;
   crew: CrewCardView;
   captain: boolean;
   portrait: ReactNode;
@@ -87,13 +91,14 @@ export function CharacterCard({
   canAct: boolean;
 }) {
   const power = crew.power;
+  const isSelf = self ?? crew.id === "sam";
   return (
     <div className="rack-label character-card">
       {portrait}
       <div className="character-name">
         <h2>
           {crew.name} {captain && <CaptainBadge />}
-          <small>{crew.id === "sam" ? "YOU" : "AI CREWMATE"}</small>
+          <small>{controlLabel ?? (isSelf ? "YOU" : "AI CREWMATE")}</small>
         </h2>
         <p>{detail}</p>
       </div>
@@ -112,7 +117,7 @@ export function CharacterCard({
               · {power.remaining} left
             </small>
           </span>
-          {crew.id === "sam" && (
+          {isSelf && (
             <button
               className="secondary compact"
               disabled={!canAct || !power.available || power.used}

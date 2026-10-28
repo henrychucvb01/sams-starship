@@ -2,7 +2,8 @@ import {test,expect,type Page} from '@playwright/test';
 import {generateMissionCircuits} from '../src/engine/puzzles';
 async function begin(page:Page,query=''){
  await page.clock.install();await page.goto('/tests/fixtures/real.html'+query);
- await page.getByRole('button',{name:"Let's Fly!"}).click();await page.getByRole('button',{name:'Start mission'}).click();await page.getByRole('button',{name:'Begin Mission'}).click();
+ await page.getByRole('button',{name:"Let's Fly!"}).click();
+  await page.getByRole("button", {name:"Continue solo", exact:true}).click();await page.getByRole('button',{name:'Start mission'}).click();await page.getByRole('button',{name:'Begin Mission'}).click();
 }
 async function setup(page:Page){await page.locator('.starting-option').last().click();await page.getByRole('button',{name:'Review starting information',exact:true}).click();await page.getByRole('dialog',{name:'Reveal starting information?'}).getByRole('button',{name:'Confirm',exact:true}).click();}
 async function human(page:Page){for(let i=0;i<10;i++){if((await page.locator('.turn-pill').innerText()).includes("Sam's"))return;await page.clock.runFor(1500);}}

@@ -6,7 +6,7 @@ export function deduce(view: AIObservation): Record<string, number[]> {
  // Numeric equality cannot identify a matching category on a special board. Only public/own facts inform moves.
  const possible=[...Array.from({length:view.max-view.min+1},(_,i)=>view.min+i),...view.specialRules.yellowPositions,...view.specialRules.redPositions];
  for(const c of view.circuits)domains[c.id]=c.value===undefined?[...new Set(possible)]:[c.value];
- for(const owner of ['sam','nova','pip']){const row=view.circuits.filter(c=>c.owner===owner).sort((a,b)=>a.position-b.position);for(const c of row){const before=row.filter(t=>t.position<c.position&&t.value!==undefined).map(t=>t.value!);const after=row.filter(t=>t.position>c.position&&t.value!==undefined).map(t=>t.value!);domains[c.id]=domains[c.id].filter(n=>n>=Math.max(-Infinity,...before)&&n<=Math.min(Infinity,...after));}}
+ for(const rackKey of new Set(view.circuits.map(c=>`${c.owner}:${c.rack??0}`))){const row=view.circuits.filter(c=>`${c.owner}:${c.rack??0}`===rackKey).sort((a,b)=>a.position-b.position);for(const c of row){const before=row.filter(t=>t.position<c.position&&t.value!==undefined).map(t=>t.value!);const after=row.filter(t=>t.position>c.position&&t.value!==undefined).map(t=>t.value!);domains[c.id]=domains[c.id].filter(n=>n>=Math.max(-Infinity,...before)&&n<=Math.min(Infinity,...after));}}
  for(const r of view.scannerResults??[])domains[r.circuitId]=domains[r.circuitId].filter(n=>r.relation==='below'?n<r.threshold:r.relation==='above'?n>r.threshold:n===r.threshold);
  return domains;
  }
@@ -14,7 +14,7 @@ export function deduce(view: AIObservation): Record<string, number[]> {
  for(const result of view.scannerResults??[]) domains[result.circuitId]=domains[result.circuitId].filter(n=>result.relation==='below'?n<result.threshold:result.relation==='above'?n>result.threshold:n===result.threshold);
  for(let pass=0;pass<view.deductionPasses;pass++){
  const before=JSON.stringify(domains);
- for(const owner of ['sam','nova','pip']){const row=view.circuits.filter(c=>c.owner===owner).sort((a,b)=>a.position-b.position);for(let i=1;i<row.length;i++){const a=domains[row[i-1].id], b=domains[row[i].id];domains[row[i].id]=b.filter(n=>n>=Math.min(...a));}for(let i=row.length-2;i>=0;i--){const b=domains[row[i+1].id];domains[row[i].id]=domains[row[i].id].filter(n=>n<=Math.max(...b));}}
+ for(const rackKey of new Set(view.circuits.map(c=>`${c.owner}:${c.rack??0}`))){const row=view.circuits.filter(c=>`${c.owner}:${c.rack??0}`===rackKey).sort((a,b)=>a.position-b.position);for(let i=1;i<row.length;i++){const a=domains[row[i-1].id], b=domains[row[i].id];domains[row[i].id]=b.filter(n=>n>=Math.min(...a));}for(let i=row.length-2;i>=0;i--){const b=domains[row[i+1].id];domains[row[i].id]=domains[row[i].id].filter(n=>n<=Math.max(...b));}}
  for(let n=view.min;n<=view.max;n++){const fixed=view.circuits.filter(c=>domains[c.id].length===1&&domains[c.id][0]===n);const possible=view.circuits.filter(c=>domains[c.id].includes(n));if(fixed.length===view.copies)for(const c of possible)if(domains[c.id].length>1)domains[c.id]=domains[c.id].filter(v=>v!==n);if(possible.length===view.copies)for(const c of possible)domains[c.id]=[n];}
  if(JSON.stringify(domains)===before)break;
  }return domains;

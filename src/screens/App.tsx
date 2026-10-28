@@ -1,4 +1,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { CrewSelection } from "../multiplayer/CrewSelection";
+import { RoomScreen, multiplayerOrigin } from "../multiplayer/RoomScreen";
+import { hasSavedRoom } from "../multiplayer/roomClient";
 import { TitleScreen } from "../components/TitleScreen";
 import { CircuitBoard } from "../components/CircuitBoard";
 import { Ship, Sam } from "../components/Ship";
@@ -67,9 +70,10 @@ export function App({
   const [adapter] = useState(() => providedAdapter ?? createEngineAdapter());
   const engine = useSyncExternalStore(adapter.subscribe, adapter.getSnapshot);
   const state = engine;
-  const [screen, setScreen] = useState<"menu" | "missions" | "intro" | "game">(
-    "menu",
+  const [screen, setScreen] = useState<"menu" | "crew" | "multiplayer" | "missions" | "intro" | "game">(
+    () => multiplayerOrigin() && hasSavedRoom(multiplayerOrigin()) ? "multiplayer" : "menu",
   );
+  const [humanCount, setHumanCount] = useState(2);
   const [overlay, setOverlay] = useState<"settings" | "help" | null>(null);
   const [reduced, setReduced] = usePreference("starship-reduced-motion");
   const [difficulty, setDifficulty] = useState("Easy");
@@ -149,12 +153,14 @@ export function App({
         {screen === "menu" && (
           <TitleScreen
             headingRef={heading}
-            onFly={() => setScreen("missions")}
+            onFly={() => setScreen("crew")}
             onHelp={() => setOverlay("help")}
             onSettings={() => setOverlay("settings")}
             reduced={reduced}
           />
         )}
+        {screen === "crew" && <CrewSelection headingRef={heading} onBack={menu} onSolo={() => setScreen("missions")} onMultiplayer={count => {setHumanCount(count);setScreen("multiplayer");}}/>}
+        {screen === "multiplayer" && <RoomScreen playerCount={humanCount} headingRef={heading} onBack={() => setScreen("crew")}/>}
         {screen === "missions" && (
           <section className="page mission-page">
             <button className="text-button back" onClick={menu}>

@@ -65,7 +65,7 @@ export type MissionView = {
   reason?: string;
   board?: {
     ordered: boolean;
-    turn: "sam" | "nova" | "pip" | null;
+    turn: string | null;
     phase: "setup" | "selecting" | "thinking" | "connecting" | null;
     note?: string;
     turnNumber?: number;
@@ -84,7 +84,7 @@ export type MissionView = {
       | "isolate"
       | "power";
     slotIds: string[];
-    participant?: "sam" | "nova" | "pip";
+    participant?: string;
   }[];
   history?: { id: number; text: string }[];
   remainingCircuits?: number;

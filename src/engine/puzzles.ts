@@ -24,3 +24,11 @@ export function generateMissionCircuits(min:number,max:number,copies:number,seed
  const rng=random(seed);for(let i=deck.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[deck[i],deck[j]]=[deck[j],deck[i]];}
  return (['sam','nova','pip'] as const).flatMap((owner,room)=>deck.filter((_,i)=>i%3===room).sort((a,b)=>a.value!-b.value!).map((c,position)=>({...c,id:`${owner}-${position}`,owner,position})));
 }
+
+/** Rulebook racks are independently dealt/sorted; both racks form one hand. */
+export function generateHumanCircuits(min:number,max:number,copies:number,seed:number,specials:import('./types').SpecialRules,players:string[],captain:string,shuffle?:()=>number):Circuit[]{
+ const racks=players.flatMap(owner=>Array.from({length:players.length===2||(players.length===3&&owner===captain)?2:1},(_,rack)=>({owner,rack})));
+ const deck=generateMissionCircuits(min,max,copies,seed,specials);
+ const rng=shuffle??random(seed^0x7261636b);for(let i=deck.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[deck[i],deck[j]]=[deck[j],deck[i]];}
+ return racks.flatMap(({owner,rack},index)=>deck.filter((_,i)=>i%racks.length===index).sort((a,b)=>a.value!-b.value!).map((c,position)=>({...c,id:`${owner}-r${rack}-${position}`,owner,rack,position})));
+}

@@ -27,7 +27,7 @@ const clock = (s: number) =>
   `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 type Effect = NonNullable<MissionView["effects"]>[number];
 /** Queue public engine events once. Effects never invoke a gameplay command. */
-function useEffects(effects: Effect[], reset: number) {
+export function useEffects(effects: Effect[], reset: number) {
   const seen = useRef(new Set<number>());
   const queue = useRef<Effect[]>([]);
   const busy = useRef(false);

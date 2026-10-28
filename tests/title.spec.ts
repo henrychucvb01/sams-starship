@@ -42,6 +42,8 @@ test("title keeps launch controls available through calm, chase and escape", asy
   await page.screenshot({ path: `docs/previews/${info.project.name}-title-escape.png`, fullPage: true });
   await fly.focus();
   await page.keyboard.press("Enter");
+  await expect(page.getByRole("heading", { name: "Assemble your crew!" })).toBeFocused();
+  await page.getByRole("button", {name:"Continue solo",exact:true}).click();
   await expect(page.getByRole("heading", { name: /Every connection/ })).toBeFocused();
   await page.getByRole("button", { name: "Start mission" }).click();
   await page.getByRole("button", { name: "Begin Mission" }).click();

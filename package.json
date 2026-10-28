@@ -10,7 +10,9 @@
     "build:release": "npm run check:title-assets && npm run build",
     "preview": "vite preview --host 0.0.0.0",
     "test": "node --import tsx --test tests/*.test.ts",
-    "test:ui": "playwright test"
+    "test:ui": "playwright test",
+    "server": "node --import tsx server/start.ts",
+    "check:server": "tsc -p tsconfig.server.json"
   },
   "dependencies": {
     "react": "^19.0.0",
