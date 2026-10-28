@@ -4,7 +4,7 @@
   isolation: isolate;
   width: calc(100% - 32px);
   max-width: 1440px;
-  min-height: calc(100svh - 140px);
+  min-height: 100svh;
   margin: 0 auto;
   padding: 24px clamp(18px, 6vw, 84px) 30px;
   border: 1px solid #ffe6b793;
@@ -242,7 +242,7 @@
   .crew-selection.spaceport-selection .character-sprite { height: clamp(115px, 24vw, 190px); }
 }
 @media (max-width: 550px) {
-  .crew-selection.spaceport-selection { width: calc(100% - 16px); padding: 62px 12px 22px; border-radius: 22px; min-height: calc(100svh - 110px); background-position: 50% center; }
+  .crew-selection.spaceport-selection { width: calc(100% - 16px); padding: 62px 12px 22px; border-radius: 22px; min-height: 100svh; background-position: 50% center; }
   .boarding-pass-tag { font-size: .46rem; padding: 6px 9px; gap: 7px; }
   .crew-selection.spaceport-selection h1 { font-size: clamp(1.8rem, 7.2vw, 2.5rem); margin: 12px 0 8px; }
   .crew-selection.spaceport-selection .crew-selection-intro { font-size: .85rem; max-width: 310px; }

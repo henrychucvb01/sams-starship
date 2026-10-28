@@ -159,27 +159,6 @@ export function CrewSelection({
           ))}
         </div>
       </fieldset>
-      <div className="crew-mode-note" role="status">
-        <strong>
-          {count === 1
-            ? "A cozy solo adventure"
-            : "Everyone gets their own screen"}
-        </strong>
-        <p>
-          {count === 1
-            ? "Fly with Sam, Nova and Pip. Your AI crewmates take their own turns."
-            : "Create a room, share its code, and reconnect the ship together. Each phone keeps its owner’s circuit numbers private."}
-        </p>
-        <small>
-          {count === 2
-            ? "Two separate racks per player."
-            : count === 3
-              ? "The Captain has two separate racks; everyone else has one."
-              : count > 3
-                ? "One separate rack per player."
-                : "Three crewmates · one shared ship"}
-        </small>
-      </div>
       <button
         className="primary crew-continue spaceport-continue"
         onClick={() => (count === 1 ? onSolo() : onMultiplayer(count))}

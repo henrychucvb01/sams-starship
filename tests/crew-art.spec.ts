@@ -3,6 +3,7 @@ test('spaceport artwork loads; five live equal-sized options preserve selected s
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto('/');await page.getByRole('button',{name:"Let's Fly!"}).click();
  const screen=page.locator('.spaceport-selection');await expect(screen).toBeVisible();
+ await expect(page.locator('header.topbar, footer, .crew-mode-note')).toHaveCount(0);
  await expect(screen).toHaveCSS('background-image',/spaceport.*webp/);
  await expect(screen.locator('.boarding-character img')).toHaveCount(5);
  await expect.poll(()=>screen.locator('img').evaluateAll(els=>els.every(el=>(el as HTMLImageElement).complete&&(el as HTMLImageElement).naturalWidth>0))).toBe(true);

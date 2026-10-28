@@ -120,7 +120,7 @@ export function App({
   return (
     <div className={`app ${reduced ? "reduce-motion" : ""}`}>
       <div className="stars" aria-hidden="true" />
-      {screen !== "menu" && <header className="topbar">
+      {screen !== "menu" && screen !== "crew" && <header className="topbar">
         <button
           className="brand text-button"
           onClick={menu}
@@ -353,7 +353,7 @@ export function App({
           </section>
         )}
       </main>
-      {screen !== "menu" && <footer>
+      {screen !== "menu" && screen !== "crew" && <footer>
         <span>SLBUTTER ORIGINAL</span>
         <span>Made for a little everyday adventure. ✦</span>
       </footer>}
