@@ -17,3 +17,9 @@ Replaced the old swarm with eight independently steered instances of Canva MAHZU
 Near stars now pass one seamless tile every six seconds, distant stars every nine seconds. Planets drift across on independent 28–42-second passes and reset only while offscreen. Current CSS planets remain pending the user's new art. The 17-second story retains calm/chase/escape timing. Individual Muncher routes have unique entrance vectors, arrival offsets, scale, bank and hover. There is no animated group transform.
 
 The ship makes two sharp dodges (upward at about 9.5s, downward at about 11s), then uses a short engine flare, concentrated moving sparks and speed streaks to accelerate out. It relocates only while fully offscreen, re-enters from the left at hyperspeed, overshoots slightly under braking, and settles to an identical end/start pose. Reduced motion and pause affect every new effect.
+
+## Planets/button and quicker return, 2026-10-28
+
+Replaced both CSS planet illustrations with the user's downloaded pink cratered planet and purple ringed planet (MAHZUO1ior8, MAHZUPcsf9E). Removed the remaining CSS mint planet. Their existing parallax drift remains; originals are untouched. Added the approved cream/red launch-panel artwork (MAHZUHBgyl4) with live Let's Fly! text inside the existing semantic button. The original aspect ratio is preserved; keyboard focus, Enter/Space activation and mission selection remain available.
+
+Ship relocation now occurs between 83% and 84.2% of the 17-second clock, rather than waiting until 87%. Hyperspeed arrival begins at 84.3%, reaches the visible approach by 87.5% (about 14.9s), brakes at 90.5% and settles by 94%. Corresponding return flare/streak timing is advanced. Offscreen relocation and identical start/end pose are preserved. Title tests verify the ship is already visible by 14.9s, both planet images and the illustrated button load, and controls work at desktop/mobile/320px sizes.

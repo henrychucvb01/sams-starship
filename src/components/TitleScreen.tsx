@@ -12,6 +12,9 @@ function asset(name: string) {
 }
 const logo = asset("starship-panic-logo");
 const ship = asset("approved-ship");
+const pinkPlanet = asset("planet-pink");
+const purplePlanet = asset("planet-purple");
+const flyButton = asset("lets-fly-button");
 const chibiMuncher = asset("space-muncher-chibi");
 const munchers = chibiMuncher ? Array<string>(8).fill(chibiMuncher) : [];
 // Each creature owns its route, entrance, bank and hover cadence. The parent
@@ -53,9 +56,8 @@ export function TitleScreen({ headingRef, onFly, onHelp, onSettings, reduced }: 
         <div className="flight-stars stars-distant" />
         <div className="flight-stars stars-near" />
         <div className="hyperspeed-streaks" />
-        <div className="pastel-planet planet-peach"><i /><i /></div>
-        <div className="pastel-planet planet-lilac"><i /></div>
-        <div className="pastel-planet planet-mint" />
+        {pinkPlanet && <img className="pastel-planet planet-peach" src={pinkPlanet} alt="" width="439" height="440" draggable="false" />}
+        {purplePlanet && <img className="pastel-planet planet-lilac" src={purplePlanet} alt="" width="520" height="350" draggable="false" />}
         <div className="flight-orbit" />
         {ship && <div className="flight-ship"><div className="escape-trail" /><div className="engine-flare" /><img src={ship} alt="" width="720" height="480" draggable="false" />
           <div className="escape-sparkles">{Array.from({ length: 12 }, (_, i) => <span key={i} style={{ "--i": i } as CSSProperties}>✦</span>)}</div>
@@ -70,7 +72,10 @@ export function TitleScreen({ headingRef, onFly, onHelp, onSettings, reduced }: 
         <h1 id="panic-heading" ref={headingRef} tabIndex={-1} className={logo ? "has-approved-logo" : ""}>
           {logo ? <><span className="title-sr-only">Starship Panic!</span><img src={logo} alt="" width="1000" height="500" fetchPriority="high" /></> : <>Starship <em>Panic!</em></>}
         </h1>
-        <button className="primary panic-fly" onClick={onFly}>Let's Fly! <span aria-hidden="true">↗</span></button>
+        <button className={`primary panic-fly ${flyButton ? "art-button" : ""}`} onClick={onFly}>
+          {flyButton && <img src={flyButton} alt="" draggable="false" />}
+          <span className="fly-label">Let's Fly!</span>
+        </button>
         <nav className="panic-links" aria-label="Start screen options">
           <button className="text-button" onClick={onHelp}>How to Play</button>
           <span aria-hidden="true">✦</span>

@@ -9,6 +9,8 @@ test("title keeps launch controls available through calm, chase and escape", asy
   await expect(page.locator(".has-approved-logo img")).toBeVisible();
   await expect(page.locator(".flight-ship img")).toHaveCount(1);
   await expect(page.locator(".flying-muncher img")).toHaveCount(8);
+  await expect(page.locator("img.pastel-planet")).toHaveCount(2);
+  await expect(page.locator(".panic-fly > img")).toBeVisible();
   expect(await page.locator(".flying-muncher img").evaluateAll(images => images.every(image => (image as HTMLImageElement).src.includes("space-muncher-chibi")))).toBe(true);
   expect(await page.locator(".panic-title img").evaluateAll(images => images.every(image => (image as HTMLImageElement).complete && (image as HTMLImageElement).naturalWidth > 0))).toBe(true);
   await expect(page.locator("header")).toHaveCount(0);
@@ -74,11 +76,14 @@ test("creatures steer independently, ship dodges twice and returns from outside 
   const directions = next.map((p, i) => Math.atan2(p[1] - first[i][1], p[0] - first[i][0]));
   expect(new Set(directions.map(a => Math.round(a * 3))).size).toBeGreaterThan(3);
   await expect(page.locator(".muncher-swarm")).toHaveCSS("animation-name", "none");
-  await seek(14800);
+  await seek(14320);
   const offscreen = await page.locator(".flight-ship").boundingBox();
   expect(offscreen!.x + offscreen!.width).toBeLessThan(0);
-  await seek(15700);
+  await seek(14900);
   expect((await shipPose()).opacity).toBe(1);
+  const returned = await page.locator(".flight-ship").boundingBox();
+  expect(returned!.x + returned!.width).toBeGreaterThan(0);
+  expect(returned!.x).toBeLessThan(page.viewportSize()!.width);
   await page.screenshot({ path: `docs/previews/${info.project.name}-title-hyperspeed-return.png`, fullPage: true });
   await seek(16999);
   const last = await shipPose();
