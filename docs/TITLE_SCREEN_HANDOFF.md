@@ -23,3 +23,9 @@ The ship makes two sharp dodges (upward at about 9.5s, downward at about 11s), t
 Replaced both CSS planet illustrations with the user's downloaded pink cratered planet and purple ringed planet (MAHZUO1ior8, MAHZUPcsf9E). Removed the remaining CSS mint planet. Their existing parallax drift remains; originals are untouched. Added the approved cream/red launch-panel artwork (MAHZUHBgyl4) with live Let's Fly! text inside the existing semantic button. The original aspect ratio is preserved; keyboard focus, Enter/Space activation and mission selection remain available.
 
 Ship relocation now occurs between 83% and 84.2% of the 17-second clock, rather than waiting until 87%. Hyperspeed arrival begins at 84.3%, reaches the visible approach by 87.5% (about 14.9s), brakes at 90.5% and settles by 94%. Corresponding return flare/streak timing is advanced. Offscreen relocation and identical start/end pose are preserved. Title tests verify the ship is already visible by 14.9s, both planet images and the illustrated button load, and controls work at desktop/mobile/320px sizes.
+
+## Three booster outlets and clear return, 2026-10-28
+
+All eight staggered Muncher routes now finish fading by 14.025s at the latest (local 79% plus the 595ms maximum arrival delay), before the ship's return phase starts at 14.331s. Tests sample the full return window, not only the first creature, and retain the quicker arrival timing.
+
+Replaced the floating center-back effect with three separate emitters measured on the approved mirrored 1100x800 ship: upper (7.6%, 32.5%), middle (2.1%, 52.8%), lower (13.9%, 73.6%). Each emitter is anchored at a blue engine outlet, rotated along the engines' rearward axis, and owns a flare, trail and four sparks. All are inside the ship's transformed coordinate space; container units scale them with the artwork on mobile. No ship pixels or gameplay files changed. Reduced motion and pause cover all three effects.

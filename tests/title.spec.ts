@@ -37,7 +37,8 @@ test("title keeps launch controls available through calm, chase and escape", asy
   await page.locator(".flight-scene").evaluate(el => el.getAnimations({ subtree: true }).forEach(a => { a.currentTime = 11000; }));
   await page.screenshot({ path: `docs/previews/${info.project.name}-title-chase.png`, fullPage: true });
   await page.locator(".flight-scene").evaluate(el => el.getAnimations({ subtree: true }).forEach(a => { a.currentTime = 13500; }));
-  expect(Number(await page.locator(".escape-trail").evaluate(el => getComputedStyle(el).opacity))).toBeGreaterThan(.8);
+  await expect(page.locator(".engine-emitter")).toHaveCount(3);
+  expect(await page.locator(".escape-trail").evaluateAll(elements => elements.every(el => Number(getComputedStyle(el).opacity) > .8))).toBe(true);
   await page.screenshot({ path: `docs/previews/${info.project.name}-title-escape.png`, fullPage: true });
   await fly.focus();
   await page.keyboard.press("Enter");
@@ -79,11 +80,17 @@ test("creatures steer independently, ship dodges twice and returns from outside 
   await seek(14320);
   const offscreen = await page.locator(".flight-ship").boundingBox();
   expect(offscreen!.x + offscreen!.width).toBeLessThan(0);
+  // Include the latest-arriving creature: its delay must not leak into re-entry.
+  for (const time of [14100, 14320, 14500, 14900, 15500, 16000, 16999]) {
+    await seek(time);
+    expect(await page.locator(".flying-muncher").evaluateAll(elements => elements.every(el => getComputedStyle(el).opacity === "0"))).toBe(true);
+  }
   await seek(14900);
   expect((await shipPose()).opacity).toBe(1);
   const returned = await page.locator(".flight-ship").boundingBox();
   expect(returned!.x + returned!.width).toBeGreaterThan(0);
   expect(returned!.x).toBeLessThan(page.viewportSize()!.width);
+  await seek(15200);
   await page.screenshot({ path: `docs/previews/${info.project.name}-title-hyperspeed-return.png`, fullPage: true });
   await seek(16999);
   const last = await shipPose();
@@ -91,6 +98,28 @@ test("creatures steer independently, ship dodges twice and returns from outside 
   const start = await shipPose();
   expect(Math.abs(start.x - last.x) + Math.abs(start.y - last.y)).toBeLessThan(.1);
   expect(Math.abs(start.bank - last.bank)).toBeLessThan(.1);
+});
+
+test("all three nozzles fire separate attached plumes during escape and arrival", async ({ page }, info) => {
+  await page.goto("/");
+  const seek = (time: number) => page.locator(".flight-scene").evaluate((el, ms) => {
+    el.getAnimations({ subtree: true }).forEach(a => { a.pause(); a.currentTime = ms; });
+  }, time);
+  await expect(page.locator(".engine-emitter")).toHaveCount(3);
+  await expect(page.locator(".engine-emitter .engine-flare")).toHaveCount(3);
+  await expect(page.locator(".engine-emitter .escape-trail")).toHaveCount(3);
+  for (const time of [13180, 14500]) {
+    await seek(time);
+    const outlets = await page.locator(".engine-emitter").evaluateAll(elements => elements.map(el => {
+      const flare = el.querySelector(".engine-flare")!;
+      const r = el.getBoundingClientRect();
+      return { x: r.x, y: r.y, opacity: Number(getComputedStyle(flare).opacity), width: flare.getBoundingClientRect().width };
+    }));
+    expect(outlets.every(outlet => outlet.opacity > .8 && outlet.width > 5)).toBe(true);
+    expect(new Set(outlets.map(outlet => Math.round(outlet.y))).size).toBe(3);
+    if (time === 13180) await page.screenshot({ path: `docs/previews/${info.project.name}-three-booster-escape.png`, fullPage: true });
+    if (time === 14500) expect(await page.locator(".flying-muncher").evaluateAll(elements => elements.every(el => getComputedStyle(el).opacity === "0"))).toBe(true);
+  }
 });
 
 test("help, settings, pause and persistent reduced motion work from the title", async ({ page }) => {

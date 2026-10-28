@@ -17,6 +17,13 @@ const purplePlanet = asset("planet-purple");
 const flyButton = asset("lets-fly-button");
 const chibiMuncher = asset("space-muncher-chibi");
 const munchers = chibiMuncher ? Array<string>(8).fill(chibiMuncher) : [];
+// Nozzle centers measured on the approved 1100x800 ship, after its CSS mirror.
+// Keep every effect in the ship's coordinate space so banking/scaling carries it.
+const engineOutlets = [
+  { name: "upper", x: 7.6, y: 32.5 },
+  { name: "middle", x: 2.1, y: 52.8 },
+  { name: "lower", x: 13.9, y: 73.6 },
+];
 // Each creature owns its route, entrance, bank and hover cadence. The parent
 // never moves the swarm as a single object. Art can be replaced independently.
 const routes = [
@@ -59,8 +66,12 @@ export function TitleScreen({ headingRef, onFly, onHelp, onSettings, reduced }: 
         {pinkPlanet && <img className="pastel-planet planet-peach" src={pinkPlanet} alt="" width="439" height="440" draggable="false" />}
         {purplePlanet && <img className="pastel-planet planet-lilac" src={purplePlanet} alt="" width="520" height="350" draggable="false" />}
         <div className="flight-orbit" />
-        {ship && <div className="flight-ship"><div className="escape-trail" /><div className="engine-flare" /><img src={ship} alt="" width="720" height="480" draggable="false" />
-          <div className="escape-sparkles">{Array.from({ length: 12 }, (_, i) => <span key={i} style={{ "--i": i } as CSSProperties}>✦</span>)}</div>
+        {ship && <div className="flight-ship"><img src={ship} alt="" width="1100" height="800" draggable="false" />
+          {engineOutlets.map(outlet => <div className="engine-emitter" key={outlet.name} data-engine={outlet.name}
+            style={{ left: `${outlet.x}%`, top: `${outlet.y}%` }}>
+            <div className="escape-trail" /><div className="engine-flare" />
+            <div className="escape-sparkles">{Array.from({ length: 4 }, (_, i) => <span key={i} style={{ "--i": i } as CSSProperties}>✦</span>)}</div>
+          </div>)}
         </div>}
         {munchers.length > 0 && <div className="muncher-swarm">
           {munchers.map((url, i) => <div className="flying-muncher" key={i} style={routeStyle(i)}>
