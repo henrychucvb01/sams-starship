@@ -18,7 +18,7 @@ test('real setup: one-tap choice, Captain first turn, markers and accessible exp
  await expect(page.locator('.information-marker')).toHaveCount(3);await expect(page.locator('.turn-pill')).toContainText("Nova's");
  await expect(page.locator('.rack-sam [data-slot="sam-0"] .information-marker')).toHaveCount(1);
  const badge=page.locator('.rack-nova .captain-badge');if(info.project.name==='desktop')await badge.hover();else await badge.tap();
- await expect(page.getByRole('tooltip')).toContainText('Leads the crew');await page.keyboard.press('Escape');await page.getByRole('button',{name:'Settings',exact:true}).focus();await badge.focus();await expect(page.getByRole('tooltip')).toBeVisible();await page.keyboard.press('Escape');
+ await expect(page.getByRole('tooltip')).toContainText('Leads the crew');await page.keyboard.press('Escape');await page.getByRole('button',{name:'Leave mission',exact:true}).focus();await badge.focus();await expect(page.getByRole('tooltip')).toBeVisible();await page.keyboard.press('Escape');
  await human(page);await expect(page.locator('.rack-nova .captain-badge')).toHaveCount(1);
  const power=page.getByRole('button',{name:'Sam: Twin Signal information',exact:true});await power.focus();await expect(page.getByRole('tooltip')).toContainText('Two hidden circuits in one teammate hand');await page.keyboard.press('Escape');
  await page.screenshot({path:`docs/previews/${info.project.name}-real-crew.png`,fullPage:true});

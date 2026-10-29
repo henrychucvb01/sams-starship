@@ -6,7 +6,7 @@ async function launch(page:Page){
 test('registered damage zones progress, repair, and remain deterministic without repeated downloads',async({page},info)=>{
  const errors:string[]=[];const downloads:string[]=[];page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{if(r.resourceType()==='image'&&/ship-(healthy|damaged)\.webp/.test(r.url()))downloads.push(r.url());});await launch(page);
  await expect(page.locator('.attack-scene')).toHaveCSS('overflow','hidden');
- const ship=page.locator('.ship-damage-visual');const select=page.getByLabel('Hull preview',{exact:true});
+ const ship=page.locator('.ship-damage-visual');await expect(page.locator('header.topbar')).toHaveCount(0);const bounds=await ship.boundingBox();expect(bounds!.height).toBeGreaterThan(bounds!.width);await expect(ship.locator('.ship-registered-canvas')).toHaveCSS('transform',/matrix\(0, 1, -1, 0,/);const select=page.getByLabel('Hull preview',{exact:true});
  const cases:[number,string,number[]][]=[
   [100,'healthy',[0,0,0,0,0]],[90,'minor',[.5,0,0,0,0]],
   [75,'light',[1,.25,0,0,0]],[50,'moderate',[1,1,.5,0,0]],

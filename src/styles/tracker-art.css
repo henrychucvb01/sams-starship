@@ -57,3 +57,33 @@
  .mp-page:has(.mp-board) .mp-status { padding:0; margin:0; }
  .app .game-terminal.mp-board > h1 { margin:1px 0 2px; }
 }
+
+/* Fit the flight deck to its contents instead of stretching empty rack space. */
+.app .game-terminal { max-width:1180px; }
+.app .game-terminal .illustrated-tracker { width:fit-content; max-width:100%; --tracker-height:80px; }
+.app .illustrated-tracker .number-marker { flex-basis:72px; width:72px; }
+@media(min-width:1000px) {
+ .app .game-terminal { --tile-height:clamp(64px,calc((100svh - 460px) / var(--crew-count,3) - 72px),100px); }
+ .app .game-terminal .rack { align-self:start; }
+ .app .game-terminal .wire-tile strong { font-size:1.45rem; }
+ .app .game-terminal .wire-tile .wire-index { font-size:.4rem; }
+ .app .game-terminal .rack-label { margin-bottom:0; min-height:30px; }
+}
+@media(max-width:999px) {
+ .app .game-terminal .illustrated-tracker { --tracker-height:72px; }
+ .app .illustrated-tracker .number-marker { flex-basis:64px; width:64px; }
+}
+@media(max-width:520px) {
+ .app .game-terminal .illustrated-tracker { width:100%; --tracker-height:64px; }
+ .app .illustrated-tracker .number-marker { flex-basis:calc((100% - 10px)/6); width:auto; }
+ .app .game-terminal .wire-tile { --packed-height:88px; }
+}
+@media(min-width:1000px) {
+ .app .game-terminal .board-companion { grid-row:2 / span var(--crew-count,3) !important; }
+ .app .game-terminal .rack-sam,.app .game-terminal .rack-self { grid-column:1; }
+ .app .game-terminal .rack { padding:2px 6px; }
+ .app .game-terminal .illustrated-tracker { --tracker-height:72px; }
+ .app .game-terminal { --tile-height:clamp(64px,calc((100svh - 460px) / var(--crew-count,3) - 61px),100px); }
+}
+@media(min-width:1000px) { .app .game-terminal.mp-board .board-companion { grid-row:1 / span var(--crew-count,3) !important; } }
+@media(min-width:1000px) { .app .game-terminal .equipment-grid { grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); } }

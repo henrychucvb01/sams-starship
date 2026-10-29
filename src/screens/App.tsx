@@ -101,7 +101,7 @@ export function App({
   return (
     <div className={`app ${screen === "game" || screen === "multiplayer" ? "game-session" : ""} ${reduced ? "reduce-motion" : ""}`}>
       <div className="stars" aria-hidden="true" />
-      {screen !== "menu" && screen !== "crew" && screen !== "missions" && <header className="topbar">
+      {screen !== "menu" && screen !== "crew" && screen !== "missions" && screen !== "game" && screen !== "multiplayer" && <header className="topbar">
         <button
           className="brand text-button"
           onClick={menu}

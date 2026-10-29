@@ -12,6 +12,9 @@ test('setup shares on first tap; complete desktop board fits and no confirmation
  await expect(page.locator('dialog[open]')).toHaveCount(0);
  await page.screenshot({path:`docs/previews/${info.project.name}-compact.png`,fullPage:true});
  const bounds=await page.locator('.rack').evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect();return {top:r.top,bottom:r.bottom}}));expect(bounds).toHaveLength(3);expect(Math.max(...bounds.map(r=>r.bottom))).toBeLessThanOrEqual(900);
+ await expect(page.locator('header.topbar')).toHaveCount(0);
+ for(let i=1;i<bounds.length;i++)expect(bounds[i].top-bounds[i-1].bottom).toBeLessThanOrEqual(8);
+ expect((await page.locator('.wire-tile').first().boundingBox())!.height).toBeGreaterThan(80);
  expect(await page.evaluate(()=>document.documentElement.scrollHeight)).toBeLessThanOrEqual(900);
  const horizontal=await page.locator('.rack-scroll').evaluateAll(els=>els.map(el=>el.scrollWidth<=el.clientWidth+1));expect(horizontal.every(Boolean)).toBe(true);
  await page.screenshot({path:`docs/previews/${info.project.name}-compact.png`,fullPage:true});

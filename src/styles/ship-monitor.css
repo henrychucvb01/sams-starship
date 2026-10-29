@@ -1,5 +1,5 @@
-/* Both registered source images share one canvas; never rotate or stretch the ship. */
-.ship-damage-visual { position:relative; isolation:isolate; width:100%; aspect-ratio:12/7; overflow:hidden; border-radius:8px; background:#04152f; }
+/* Rotate the entire registered canvas together: all damage zones stay aligned. */
+.ship-damage-visual { position:relative; isolation:isolate; width:100%; aspect-ratio:7/12; overflow:hidden; border-radius:8px; background:#04152f; }
 .ship-damage-visual img { display:block; width:100%; height:100%; object-fit:contain; pointer-events:none; user-select:none; }
 .ship-damage-visual .ship-damage-base { position:relative; }
 .ship-damage-zone,.ship-damage-full { position:absolute; inset:0; transition:opacity .75s ease; }
@@ -50,3 +50,10 @@
 
 /* Keep the preserved shield/impact effects inside the new ship viewport. */
 .app .game-terminal .board-companion .energy-shield { inset:8%; width:auto; z-index:3; }
+
+.ship-registered-canvas { position:absolute; left:50%; top:50%; width:171.428571%; height:58.333333%; transform:translate(-50%,-50%) rotate(90deg); }
+.ship-registered-canvas .ship-damage-base { position:absolute; inset:0; }
+.app .game-terminal .board-companion { align-self:start; height:auto; }
+@media(max-width:520px) { .app .game-terminal .board-companion { padding:3px; } }
+
+@media(min-width:1000px) { .app .game-terminal .ship-damage-visual { max-width:88px; margin-inline:auto; } }

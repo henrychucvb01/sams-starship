@@ -255,6 +255,7 @@ test("production navigation, persisted preferences, off-turn controls, timeout a
   await waitHuman(page);
   await page.clock.runFor(1100);
   await expect(page.getByText(/4:5[0-9]/, { exact: true })).toBeVisible();
+  await page.reload();
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await page.getByRole("checkbox").check();
   await page.keyboard.press("Escape");

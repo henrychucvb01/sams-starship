@@ -56,6 +56,7 @@ export function StatusShip(props: ShipHullProps) {
   return <div className={`ship-damage-visual condition-${view.condition}`} role="img"
     aria-label={`Spaceship: ${view.label}; ${Math.round(view.percent)}% hull`}
     data-hull={view.percent} data-condition={view.condition} data-change={change}>
+    <div className="ship-registered-canvas">
     <img className="ship-damage-base" src={healthy} width={960} height={560} alt="" decoding="async" draggable={false}/>
     {view.zones.map(zone => <img key={zone.id} className="ship-damage-zone" src={damaged}
       width={960} height={560} alt="" decoding="async" draggable={false}
@@ -67,5 +68,6 @@ export function StatusShip(props: ShipHullProps) {
     <span className="ship-critical-glow" aria-hidden="true"/>
     {(view.condition === "moderate" || view.condition === "heavy" || view.condition === "critical") &&
       <span className="monitor-sparks" aria-hidden="true"><i/><i/></span>}
+    </div>
   </div>;
 }
