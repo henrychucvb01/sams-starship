@@ -10,6 +10,7 @@ const enabled = !!process.env.STARSHIP_MULTIPLAYER_TEST;
 async function select(page: Page, n: number) {
   await page.goto("/");
   await page.getByRole("button", { name: "Let's Fly!" }).click();
+  await page.getByRole("button", {name:"Play mode", exact:true}).click();
   await expect(
     page.getByRole("heading", { name: "Assemble your crew!" }),
   ).toBeVisible();
@@ -131,6 +132,7 @@ test("crew selection keeps solo separate and supports every crew size with keybo
 }, info) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Let's Fly!" }).click();
+  await page.getByRole("button", {name:"Play mode", exact:true}).click();
   await expect(
     page.getByRole("button", { name: "Continue solo", exact: true }),
   ).toBeVisible();

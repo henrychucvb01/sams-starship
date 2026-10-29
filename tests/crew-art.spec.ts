@@ -2,6 +2,7 @@ import {test,expect} from '@playwright/test';
 test('spaceport artwork loads; five live equal-sized options preserve selected state and navigation',async({page},info)=>{
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto('/');await page.getByRole('button',{name:"Let's Fly!"}).click();
+  await page.getByRole("button", {name:"Play mode", exact:true}).click();
  const screen=page.locator('.spaceport-selection');await expect(screen).toBeVisible();
  await expect(page.locator('header.topbar, footer, .crew-mode-note')).toHaveCount(0);
  await expect(screen).toHaveCSS('background-image',/spaceport.*webp/);
@@ -34,10 +35,11 @@ test('spaceport artwork loads; five live equal-sized options preserve selected s
  await expect(page.getByRole('heading',{name:/Your crew.*launchpad/ })).toBeVisible();
  await page.getByRole('button',{name:/Back to crew selection/}).click();
  await page.locator('input[value="1"][name="crew-size"]').check();await page.getByRole('button',{name:'Continue solo',exact:true}).click();
- await expect(page.getByRole('button',{name:/Play mode/})).toBeEnabled();expect(errors).toEqual([]);
+ await expect(page.getByRole('button',{name:'Begin Mission'})).toBeEnabled();expect(errors).toEqual([]);
 });
 test('spaceport keeps radio keyboard focus, native labels and reduced-motion controls',async({page})=>{
  await page.emulateMedia({reducedMotion:'reduce'});await page.goto('/');await page.getByRole('button',{name:"Let's Fly!"}).click();
+  await page.getByRole("button", {name:"Play mode", exact:true}).click();
  const first=page.locator('input[name="crew-size"][value="1"]');await first.focus();
  for(const n of [2,3,4,5]){await page.keyboard.press('ArrowRight');await expect(page.locator(`input[name="crew-size"][value="${n}"]`)).toBeChecked();}
  expect(await page.locator('.character-sprite').evaluateAll(els=>els.every(el=>getComputedStyle(el).animationName==='none'))).toBe(true);

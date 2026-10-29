@@ -2,7 +2,9 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { CrewSelection } from "../multiplayer/CrewSelection";
 import { RoomScreen, multiplayerOrigin } from "../multiplayer/RoomScreen";
 import { hasSavedRoom } from "../multiplayer/roomClient";
-import { ModeArtwork, ModeLock } from "../components/ModeArtwork";
+import adventureTitle from "../assets/game-modes/adventure-title.webp";
+import "../styles/game-modes.css";
+import panelsArt from "../assets/game-modes/four-panels.webp";
 import { TitleScreen } from "../components/TitleScreen";
 import { CircuitBoard } from "../components/CircuitBoard";
 import { Ship, Sam } from "../components/Ship";
@@ -12,34 +14,10 @@ import {
 } from "../adapters/engineAdapter";
 import type { MissionAdapter } from "../types/presentation";
 const gameModes = [
-  [
-    "Restore the Lights",
-    "Matching numbers",
-    "A little spark goes a long way. Reconnect the circuits and light up the ship.",
-    "01",
-    "✧",
-  ],
-  [
-    "Repair Navigation",
-    "Number sequences",
-    "Find your way through the stars by putting the signals in order.",
-    "02",
-    "⌁",
-  ],
-  [
-    "Restart the Engines",
-    "Matching numbers",
-    "Bring the engines back online. There is a whole galaxy waiting.",
-    "03",
-    "↟",
-  ],
-  [
-    "Restore Communications",
-    "Number sequences",
-    "Follow the signals. Bring the crew back together.",
-    "04",
-    "⌘",
-  ],
+  ["Restore the Lights", "Reconnect the circuits and light up the ship."],
+  ["Navigation Crisis", "Realign the navigation and get back on course."],
+  ["Power Overload", "Stabilize the engines and restore full power."],
+  ["Signal Blackout", "Restore communications and bring the crew together."],
 ];
 const time = (s: number) =>
   `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
@@ -74,6 +52,7 @@ export function App({
   const [screen, setScreen] = useState<"menu" | "crew" | "multiplayer" | "missions" | "intro" | "game">(
     () => multiplayerOrigin() && hasSavedRoom(multiplayerOrigin()) ? "multiplayer" : "menu",
   );
+  const [selectedMode, setSelectedMode] = useState(0);
   const [humanCount, setHumanCount] = useState(2);
   const [overlay, setOverlay] = useState<"settings" | "help" | null>(null);
   const [reduced, setReduced] = usePreference("starship-reduced-motion");
@@ -121,7 +100,7 @@ export function App({
   return (
     <div className={`app ${reduced ? "reduce-motion" : ""}`}>
       <div className="stars" aria-hidden="true" />
-      {screen !== "menu" && screen !== "crew" && <header className="topbar">
+      {screen !== "menu" && screen !== "crew" && screen !== "missions" && <header className="topbar">
         <button
           className="brand text-button"
           onClick={menu}
@@ -154,74 +133,50 @@ export function App({
         {screen === "menu" && (
           <TitleScreen
             headingRef={heading}
-            onFly={() => setScreen("crew")}
+            onFly={() => setScreen("missions")}
             onHelp={() => setOverlay("help")}
             onSettings={() => setOverlay("settings")}
             reduced={reduced}
           />
         )}
-        {screen === "crew" && <CrewSelection headingRef={heading} onBack={menu} onSolo={() => setScreen("missions")} onMultiplayer={count => {setHumanCount(count);setScreen("multiplayer");}}/>}
+        {screen === "crew" && <CrewSelection headingRef={heading} onBack={() => setScreen("missions")} onSolo={() => setScreen("intro")} onMultiplayer={count => {setHumanCount(count);setScreen("multiplayer");}}/>}
         {screen === "multiplayer" && <RoomScreen playerCount={humanCount} headingRef={heading} onBack={() => setScreen("crew")}/>}
         {screen === "missions" && (
           <section className="page mission-page game-modes-page">
             <button className="text-button back" onClick={menu}>
               ← Back to the ship
             </button>
-            <div className="eyebrow">CIRCUIT RESCUE · GAME MODES</div>
-            <h1 ref={heading} tabIndex={-1}>
-              Choose your <em>game mode.</em>
+            <h1 ref={heading} tabIndex={-1} className="adventure-heading">
+              <img src={adventureTitle} alt="Choose Your Adventure!" />
             </h1>
-            <p className="muted">
-              A little crew. A big adventure. Choose how you’ll rescue the ship.
-            </p>
-            <div className="mission-grid">
-              {gameModes.map(([name, type, description, number], i) => (
-                <article
-                  className={`mission-card ${i ? "unavailable" : "available"}`}
-                  key={name}
-                >
-                  <div className="mission-top">
-                    <span className="mode-number">MODE {number}</span>
-                    <span className={`mode-status ${i === 0 && difficulty === "Easy" ? "mode-ready" : "mode-locked"}`}>
-                      {i === 0 && difficulty === "Easy" ? <><span className="mode-ready-dot" /> Ready</> : <><ModeLock /> Coming Soon</>}
-                    </span>
-                  </div>
-                  <ModeArtwork index={i} />
-                  <h2>{name}</h2>
-                  <span className="tag">{type}</span>
-                  <p>{description}</p>
-                  <label>
-                    Difficulty
-                    <select
-                      value={i ? "Easy" : difficulty}
-                      disabled={i !== 0}
-                      onChange={(e) => setDifficulty(e.target.value)}
-                    >
-                      <option>Easy</option>
-                      <option>Medium</option>
-                      <option>Hard</option>
-                    </select>
-                  </label>
-                  <small className="availability">
-                    {i === 0 && difficulty === "Easy"
-                      ? "Ready for launch"
-                      : "Coming Soon"}
-                  </small>
-                  <button
-                    className={i ? "secondary" : "primary"}
-                    disabled={i !== 0 || difficulty !== "Easy"}
-                    onClick={() => {
-                      adapter.chooseMission?.("lights");
-                      setScreen("intro");
-                    }}
-                  >
-                    {i === 0 && difficulty === "Easy"
-                      ? "Play mode"
-                      : "Coming Soon"}{" "}
-                    <span aria-hidden="true">{i === 0 && difficulty === "Easy" ? "→" : <ModeLock />}</span>
-                  </button>
-                </article>
-              ))}
+            <div className="adventure-stage">
+              <img className="combined-panels" src={panelsArt} alt="" />
+              <div className="adventure-options" aria-label="Game Modes">
+                {gameModes.map(([name, description], i) => (
+                  <article className={`adventure-mode mode-${i} ${selectedMode === i ? "selected" : ""}`} key={name}>
+                    <button className="panel-select" aria-label={`Select ${name}`} aria-pressed={selectedMode === i} onClick={() => setSelectedMode(i)}>
+                      <span className="panel-selection-label">{selectedMode === i ? "Selected" : "Explore"}</span>
+                    </button>
+                    <div className="mode-copy">
+                      <h2>{name}</h2>
+                      <p>{description}</p>
+                      {i === 0 && <label>Difficulty
+                        <select value={difficulty} onChange={e => setDifficulty(e.target.value)}>
+                          <option>Easy</option><option>Medium</option><option>Hard</option>
+                        </select>
+                      </label>}
+                      <button className="illustrated-mode-button" disabled={i !== 0 || difficulty !== "Easy"} onClick={() => {
+                        adapter.chooseMission?.("lights");
+                        setSelectedMode(0);
+                        setScreen("crew");
+                      }}>
+                        <span>{i === 0 && difficulty === "Easy" ? "Play mode" : "Coming Soon"}</span>
+                        <span aria-hidden="true">{i === 0 && difficulty === "Easy" ? "→" : "⌑"}</span>
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </div>
             </div>
             {!!adapter.chooseMission && (
               <section
@@ -355,7 +310,7 @@ export function App({
           </section>
         )}
       </main>
-      {screen !== "menu" && screen !== "crew" && <footer>
+      {screen !== "menu" && screen !== "crew" && screen !== "missions" && <footer>
         <span>SLBUTTER ORIGINAL</span>
         <span>Made for a little everyday adventure. ✦</span>
       </footer>}
