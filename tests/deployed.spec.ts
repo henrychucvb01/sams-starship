@@ -14,8 +14,6 @@ test("deployed game supports board navigation, finite tools and actual turns", a
   await expect(page.locator(".captain-badge")).toHaveCount(1);
   await expect(page.locator(".equipment-locked")).toHaveCount(3);
   await page.locator(".starting-option").last().click();
-  await page.getByRole("button", {name: "Review starting information", exact: true}).click();
-  await page.getByRole("dialog", {name: "Reveal starting information?"}).getByRole("button", {name: "Confirm", exact: true}).click();
   await expect(page.locator(".information-marker")).toHaveCount(3);
   await expect(page.locator(".turn-pill")).toContainText("Sam's", {timeout: 15000});
   expect(

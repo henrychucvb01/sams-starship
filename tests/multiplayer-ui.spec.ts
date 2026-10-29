@@ -115,15 +115,7 @@ async function starting(seats: Seat[]) {
         `${i}/${seats.length} crew markers placed`,
       );
     await p.locator(".starting-information .mp-actions button").first().click();
-    const d = p.getByRole("dialog", {
-      name: "Reveal starting information",
-      exact: true,
-    });
-    await expect(
-      d.getByRole("button", { name: "Cancel", exact: true }),
-    ).toBeFocused();
-    await d.getByRole("button", { name: "Confirm", exact: true }).click();
-    await expect(d).toHaveCount(0);
+    await expect(p.locator(".setup-dialog")).toHaveCount(0);
   }
   for (const seat of seats) {
     await expect(seat.page.locator(".starting-information")).toHaveCount(0);
@@ -194,6 +186,15 @@ for (const n of [2, 3, 4, 5])
         );
       }
       await starting(seats);
+      await seats[0].page.screenshot({path:`docs/previews/${info.project.name}-${n}-compact-multi.png`,fullPage:true});
+      if(info.project.name === "desktop") {
+        for (const seat of seats) {
+          const bottom=await seat.page.locator('.rack').evaluateAll(els=>Math.max(...els.map(el=>el.getBoundingClientRect().bottom)));
+          expect(bottom).toBeLessThanOrEqual(1000);
+          expect(await seat.page.evaluate(()=>document.documentElement.scrollHeight)).toBeLessThanOrEqual(1000);
+          expect(await seat.page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+        }
+      }
       const g = seats[0].room()!.game!;
       expect(g.currentParticipant).toBe(g.captain);
       const active = seats.find((s) => s.playerId === g.currentParticipant)!;
@@ -225,7 +226,7 @@ for (const n of [2, 3, 4, 5])
       await Promise.all(seats.map((s) => s.context.close()));
     }
   });
-test("network failure preserves a pending command, explicit retry spends once, cancel and focus work", async ({
+test("network failure preserves an immediate command; explicit retry spends once", async ({
   browser,
   baseURL,
 }, info) => {
@@ -243,21 +244,10 @@ test("network failure preserves a pending command, explicit retry spends once, c
       .locator(`.wire-tile:not([data-owner="${active.playerId}"])`)
       .first();
     await own.click();
-    await target.click();
-    let dialog = p.getByRole("dialog", {
-      name: "Confirm connection",
-      exact: true,
-    });
-    await expect(dialog).toBeVisible();
-    await p.keyboard.press("Escape");
-    await expect(dialog).toHaveCount(0);
-    await expect(target).toBeFocused();
-    await target.click();
-    dialog = p.getByRole("dialog", { name: "Confirm connection", exact: true });
     await p.route("**/commands", (route) => route.abort());
-    await dialog.getByRole("button", { name: "Confirm", exact: true }).click();
-    await expect(dialog.getByRole("alert")).toBeVisible();
-    await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+    await target.click();
+    await expect(p.locator(".mp-board [role=alert]")).toBeVisible();
+    await expect(p.locator("dialog[open]")).toHaveCount(0);
     await expect(
       p.getByRole("button", { name: "Retry pending action", exact: true }),
     ).toBeVisible();
@@ -416,13 +406,6 @@ test("a real connection unlocks shared equipment; off-turn use and exhaustion st
         .locator(`.starting-information .mp-actions button[aria-label^="Blue ${number} ·"]`)
         .first()
         .click();
-      await seat.page
-        .getByRole("dialog", {
-          name: "Reveal starting information",
-          exact: true,
-        })
-        .getByRole("button", { name: "Confirm", exact: true })
-        .click();
     }
     for (const seat of seats) {
       await expect(seat.page.locator(".starting-information")).toHaveCount(0);
@@ -442,10 +425,6 @@ test("a real connection unlocks shared equipment; off-turn use and exhaustion st
       )!;
     await p.locator(`[data-slot="${own.id}"]`).click();
     await p.locator(`[data-slot="${target.id}"]`).click();
-    await p
-      .getByRole("dialog", { name: "Confirm connection", exact: true })
-      .getByRole("button", { name: "Confirm", exact: true })
-      .click();
     await expect(p.locator(".equipment-ready")).toHaveCount(1);
     const item = active
       .room()!
@@ -550,15 +529,9 @@ test("two human players complete a mission using public clues, then replay rotat
       });
       await dp.mouse.up();
     }
-    const dragDialog = dp.getByRole("dialog", {
-      name: "Confirm connection",
-      exact: true,
-    });
-    await expect(dragDialog).toBeVisible();
-    await dragDialog
-      .getByRole("button", { name: "Cancel", exact: true })
-      .click();
-    expect(dragSeat.room()!.game!.turnNumber).toBe(1);
+    await expect(dp.locator("dialog[open]")).toHaveCount(0);
+    await expect.poll(()=>dragSeat.room()!.game!.turnNumber).toBe(2);
+    authority = dragSeat.room()!;
 
     for (
       let step = 0;
@@ -597,17 +570,9 @@ test("two human players complete a mission using public clues, then replay rotat
             exact: true,
           })
           .click();
-        await p
-          .getByRole("dialog", { name: "Self-Connection", exact: true })
-          .getByRole("button", { name: "Confirm", exact: true })
-          .click();
       } else if (pair) {
         await p.locator(`[data-slot="${pair.a.id}"]`).click();
         await p.locator(`[data-slot="${pair.b.id}"]`).click();
-        await p
-          .getByRole("dialog", { name: "Confirm connection", exact: true })
-          .getByRole("button", { name: "Confirm", exact: true })
-          .click();
       } else {
         const share = own.find(
           (c) => !g.publicReveals.some((r) => r.circuitId === c.id),
@@ -619,10 +584,6 @@ test("two human players complete a mission using public clues, then replay rotat
               name: "Share selected circuit",
               exact: true,
             })
-            .click();
-          await p
-            .getByRole("dialog", { name: "Share your circuit", exact: true })
-            .getByRole("button", { name: "Confirm", exact: true })
             .click();
         } else
           await p
@@ -652,10 +613,6 @@ test("two human players complete a mission using public clues, then replay rotat
     });
     await seats[0].page
       .getByRole("button", { name: "Play again", exact: true })
-      .click();
-    await seats[0].page
-      .getByRole("dialog", { name: "Start another mission?", exact: true })
-      .getByRole("button", { name: "Confirm", exact: true })
       .click();
     for (const seat of seats)
       await expect(
@@ -732,11 +689,8 @@ test('required setup retains pending retry inside the popup without revealing be
    if(!failed&&body.command?.type==='startingInformation'){failed=true;await route.abort();}else await route.continue();
   });
   await p.locator('.starting-information .mp-actions button').first().click();
-  const review=p.getByRole('dialog',{name:'Reveal starting information',exact:true});
-  await review.getByRole('button',{name:'Confirm',exact:true}).click();
-  await expect(review.getByRole('alert')).toBeVisible();
+  await expect(p.locator('.setup-dialog [role=alert]').first()).toBeVisible();
   expect(host.room()!.game!.startingInformation).toHaveLength(0);
-  await review.getByRole('button',{name:'Cancel',exact:true}).click();
   const setup=p.getByRole('dialog',{name:'Choose your starting information',exact:true});await expect(setup).toBeVisible();
   await setup.getByRole('button',{name:'Retry pending action',exact:true}).click();
   await expect(setup).toHaveCount(0);await expect.poll(()=>host.room()!.game!.startingInformation.length).toBe(1);

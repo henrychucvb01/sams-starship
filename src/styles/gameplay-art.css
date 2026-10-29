@@ -112,3 +112,249 @@ body:has(.setup-dialog[open]) { overflow: hidden; }
 .setup-exit-actions { display: flex; justify-content: center; gap: 16px; flex-wrap: wrap; margin-top: 16px; }
 .setup-dialog .setup-exit, .setup-dialog .setup-exit-actions button { min-height: 44px; padding: 10px; color: #d6eaff; }
 .setup-dialog .setup-exit { display: block; margin: auto; }
+/* Compact flight deck: keep the live circuits together rather than spending a
+   full row on each portrait. Artwork remains proportional inside its frame. */
+.game-session > main { width:100%; }
+.game-terminal { max-width:1600px; padding:12px 16px 16px; background-size:100% auto; --status-width:180px; --terminal-gap:6px; }
+.game-terminal .board-heading h1,.game-terminal > h1 { font-size:1.2rem; margin:5px 0 8px; }
+.game-terminal .board-heading .eyebrow { font-size:.5rem; }
+.game-terminal .board-heading .secondary { min-height:36px; padding:7px 14px; }
+.game-terminal .engine-note { margin:3px 0; padding:4px 8px; }
+.game-terminal .rack,.game-terminal .rack-sam,.game-terminal .rack-self { border-width:9px; border-image-width:12px; padding:5px 8px; }
+.game-terminal .rack-label { min-height:44px; padding:0 0 0 48px; margin-bottom:3px; align-items:center; gap:5px; flex-wrap:nowrap; }
+.game-terminal .communication-portrait { width:44px; height:44px; top:0; bottom:auto; }
+.game-terminal .communication-portrait > :not(.portrait-frame-art) { width:30px; height:32px; }
+.game-terminal .crew-message-panel { left:44px; bottom:0; height:44px; max-width:250px; padding:8px 20px; background-size:100% 100%; z-index:5; }
+.game-terminal .crew-message-panel span { font-size:.65rem; }
+.game-terminal .character-name h2 { font-size:.85rem; margin:0; }
+.game-terminal .character-name p { margin:1px 0 0; font-size:.6rem; }
+.game-terminal .character-name h2 small { font-size:.4rem; }
+.game-terminal .captain-art { width:22px; height:22px; }
+.game-terminal .rack-direction { font-size:.4rem; }
+.game-terminal .personal-power { width:auto; gap:5px; }
+.game-terminal .personal-power strong { font-size:.65rem; }
+.game-terminal .personal-power small { font-size:.5rem; }
+.game-terminal .personal-power .secondary { min-height:32px; padding:5px 8px; font-size:.65rem; }
+.game-terminal .rack-scroll { padding:2px 2px 4px; }
+.game-terminal .wire-row { min-width:0; gap:3px; }
+.game-terminal .wire-tile { flex:1 1 0; width:auto; min-width:0; max-width:64px; height:100px; padding:32px 2px 19px; gap:3px; background-size:100% 100% !important; }
+.game-terminal .wire-tile strong { font-size:1.2rem; }
+.game-terminal .wire-tile .wire-index { font-size:.36rem; }
+.game-terminal .wire-tile .wire-grab { top:5px; font-size:.55rem; }
+.game-terminal .wire-tile .sort-position { top:24px; font-size:.5rem; }
+.game-terminal .number-tracker { margin:5px 0; padding:6px 10px; }
+.game-terminal .tracker-heading { margin-bottom:3px; }
+.game-terminal .number-register { gap:4px; }
+.game-terminal .number-marker { padding:3px 2px; }
+.game-terminal .number-marker strong { font-size:.9rem; }
+.game-terminal .number-marker small { margin-top:2px; }
+.game-terminal .copy-pips { margin-top:3px; }
+.game-terminal .shared-equipment { padding:4px 8px; margin:4px 0; }
+.game-terminal .equipment-heading { margin-bottom:3px; }
+.game-terminal .equipment-grid { gap:5px; }
+.game-terminal .equipment-card { padding:4px 6px; gap:5px; min-height:0; }
+.game-terminal .equipment-card h3 { font-size:.65rem; }
+.game-terminal .equipment-card p,.game-terminal .equipment-card small { font-size:.5rem; }
+.game-terminal .equipment-card .secondary { min-height:30px; padding:4px 6px; font-size:.55rem; }
+.game-terminal .drag-instructions { font-size:.6rem; margin:4px 0; }
+.game-terminal .board-topline { padding:2px 0; font-size:.6rem; }
+.game-terminal .board-companion { border-width:9px; border-image-width:12px; padding:8px; }
+.game-terminal .mission-ribbon { gap:6px; padding-bottom:4px; }
+.game-terminal .mission-ribbon > span { font-size:.65rem; }
+.game-terminal .mission-ribbon strong { font-size:1rem; margin:1px 0 0; }
+.game-terminal .attack-scene { min-height:0; padding:0; }
+.game-terminal .attack-scene .ship-scene { height:100px; }
+.game-terminal .status-ship-art { max-height:110px; object-fit:contain; margin:6px auto; }
+.game-terminal .attack-scene .damage-caption { margin:4px 0; font-size:.65rem; }
+.game-terminal .preserved-tools { margin-top:5px; gap:6px; }
+.game-terminal .toolkit,.game-terminal .mini-terminal { padding:6px 8px; }
+.game-terminal .toolkit summary { padding:0; font-size:.7rem; }
+.game-terminal .tool-grid { gap:4px; margin-top:4px; }
+.game-terminal .tool-card { padding:5px; gap:5px; }
+.game-terminal .tool-card strong { font-size:.65rem; }
+.game-terminal .tool-card small { font-size:.5rem; }
+.game-terminal .tool-description { display:none; }
+.game-terminal .mini-messages { height:32px; min-height:0; max-height:32px; font-size:.6rem; }
+.game-terminal .mini-terminal .section-heading { margin-bottom:3px; }
+.game-terminal .mini-terminal > small { display:none; }
+.game-terminal .transmit { font-size:.6rem; min-height:28px; }
+.game-terminal .board-instruction { padding:3px 0; min-height:0; font-size:.65rem; }
+.game-terminal .selection-tray { padding:4px 8px; font-size:.65rem; min-height:30px; }
+.game-terminal .mp-rack-heading { margin:1px 0; font-size:.5rem; }
+.game-terminal .mp-target-summary { margin:3px 0; font-size:.65rem; }
+.game-terminal .mp-actions { gap:4px; margin:4px 0; }
+.game-terminal .mp-actions .secondary { padding:5px 8px; min-height:32px; font-size:.65rem; }
+.game-terminal .deduction-log { margin-top:3px; font-size:.65rem; }
+/* Five crew rows and two-rack layouts get a denser cartridge, not a shrunken page. */
+@media (min-width:1000px) {
+ .game-terminal { --tile-height:clamp(58px,calc((100svh - 410px) / var(--crew-count,3) - 65px),100px); }
+ .game-terminal .wire-tile { height:var(--tile-height); max-width:calc(var(--tile-height) * .51); padding:calc(var(--tile-height) * .33) 1px calc(var(--tile-height) * .18); }
+ .game-terminal .wire-tile strong { font-size:clamp(.9rem,1.3vw,1.2rem); }
+ .game-terminal .wire-tile .wire-index { font-size:.32rem; }
+ .game-terminal .wire-tile .sort-position { top:24%; }
+}
+@media (max-width:999px) {
+ .game-terminal { padding:8px; --status-width:125px; }
+ .game-terminal .wire-row { flex-wrap:wrap; }
+ .game-terminal .wire-tile { flex:0 0 calc((100% - 18px) / 7); min-width:38px; max-width:52px; height:92px; }
+ .game-terminal .personal-power > span { display:none; }
+ .game-terminal .rack-direction { display:none; }
+ .game-terminal .character-name { min-width:0; }
+ .game-terminal .rack-label h2 small { display:none; }
+ .game-terminal .preserved-tools { grid-template-columns:1fr; }
+}
+@media (max-width:520px) {
+ .game-terminal { --status-width:96px; padding:5px; }
+ .game-terminal .rack,.game-terminal .rack-self,.game-terminal .rack-sam { padding:4px; border-width:6px; border-image-width:9px; }
+ .game-terminal .board-companion { padding:5px; border-width:6px; border-image-width:9px; }
+ .game-terminal .wire-tile { min-width:34px; flex-basis:calc((100% - 9px) / 4); height:78px; padding:27px 1px 14px; }
+ .game-terminal .wire-tile strong { font-size:1rem; }
+ .game-terminal .rack-sam .wire-tile,.game-terminal .rack-self .wire-tile { flex-basis:calc((100% - 18px) / 7); }
+ .game-terminal .number-register { grid-template-columns:repeat(12,minmax(0,1fr)); gap:2px; }
+ .game-terminal .number-tracker { padding:4px; }
+ .game-terminal .number-marker strong { font-size:.7rem; }
+ .game-terminal .number-marker small { font-size:.4rem; }
+ .game-terminal .copy-pips { gap:1px; }
+ .game-terminal .copy-pips i { width:3px; height:3px; }
+ .game-terminal .rack-label { padding-left:35px; min-height:38px; }
+ .game-terminal .communication-portrait { width:34px; height:36px; }
+ .game-terminal .communication-portrait > :not(.portrait-frame-art) { width:24px; height:26px; }
+ .game-terminal .personal-power .secondary { font-size:.5rem; padding:3px; }
+ .game-terminal .character-name h2 { font-size:.7rem; }
+ .game-terminal .character-name p { font-size:.45rem; }
+ .game-terminal .equipment-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
+ .game-terminal .equipment-card { flex-wrap:wrap; }
+}
+/* Remaining choice dialogs use the approved illustrated terminal frame. */
+.connection-dialog { border:24px solid transparent; border-image:url('../assets/gameplay/setup-popup.webp') 130 fill / 28px / 0 stretch; border-radius:0; background:#0c2c55; box-shadow:none; padding:18px; }
+.connection-dialog .primary { background:url('../assets/gameplay/confirm-button.webp') center / 100% 100% no-repeat; color:#302441; border:0; box-shadow:none; }
+.connection-dialog .preview-circuit { background:url('../assets/gameplay/cartridge-blue.webp') center / contain no-repeat; border:0; box-shadow:none; height:145px; width:75px; border-radius:0; }
+.connection-dialog .preview-red { background-image:url('../assets/gameplay/cartridge-red.webp'); }
+.connection-dialog .preview-yellow { background-image:url('../assets/gameplay/cartridge-yellow.webp'); }
+/* Results keep real statistics and controls over approved illustrated artwork. */
+.game-session .result-screen { width:min(760px,96vw); min-height:95svh; margin:2svh auto; padding:28px clamp(24px,6vw,70px); border:20px solid transparent; border-image:url('../assets/gameplay/crew-monitor.webp') 30 fill / 20px / 0 stretch; background:#041c36; }
+.game-session .result-screen.event-failure { border-image-source:url('../assets/gameplay/damaged-monitor.webp'); }
+.game-session:has(.result-screen) { background:#041426 url('../assets/gameplay/terminal-window.webp') center top / cover fixed no-repeat; }
+.result-portrait { width:120px; height:130px; margin:15px auto; background:url('../assets/gameplay/portrait-frame.webp') center / contain no-repeat; display:grid; place-items:center; }
+.result-portrait img { width:86px; height:96px; object-fit:contain; }
+.game-session .result-screen h1 { font-size:clamp(1.8rem,4vw,2.8rem); }
+.game-session .result-screen h1 em { font-size:clamp(1.1rem,2vw,1.5rem); }
+.game-session .result-stats { margin:22px 0; padding:18px 0; width:100%; }
+.game-session .result-screen > .primary { background:url('../assets/gameplay/confirm-button.webp') center / 100% 100% no-repeat; color:#302441; box-shadow:none; border:0; min-height:64px; }
+.game-terminal .wire-tile { background-size:contain !important; }
+@media (min-width:1000px) {
+ .game-terminal { --tile-height:clamp(64px,calc((100svh - 300px) / var(--crew-count,3) - 60px),100px); }
+ .game-terminal .wire-tile { max-width:none; min-width:32px; }
+}
+.game-session .result-screen.event-defeat { border-image-source:url('../assets/gameplay/damaged-monitor.webp'); }
+.game-session .topbar { padding:4px 20px; min-height:36px; height:36px; }
+.game-session .topbar .brand-mark { width:26px; height:26px; }
+.game-session .topbar .brand-sub { display:none; }
+.game-session .topbar .icon-button { width:30px; height:30px; }
+.game-terminal .board-topline { margin-bottom:0; }
+.game-terminal .tool-grid { grid-template-columns:repeat(4,minmax(0,1fr)); }
+.game-terminal .tool-card { min-height:42px; }
+.game-terminal .tool-card small { display:none; }
+.game-terminal .preserved-tools { grid-template-columns: minmax(0,2fr) minmax(0,1fr); }
+.game-terminal .deduction-log { padding:4px 0; }
+.game-terminal .crew-whisper { margin:2px 0; font-size:.5rem; }
+@media (min-width:1000px) {
+ .game-terminal { --tile-height:clamp(56px,calc((100svh - 430px) / var(--crew-count,3) - 55px),86px); }
+ .game-terminal .wire-tile .wire-index { font-size:.3rem; }
+}
+@media (max-width:700px) {
+ .game-terminal .tool-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+ .game-terminal .preserved-tools { grid-template-columns:1fr; }
+}
+.app .connection-dialog { border:24px solid transparent; border-image:url('../assets/gameplay/setup-popup.webp') 130 fill / 28px / 0 stretch; border-radius:0; background:#0c2c55; box-shadow:none; padding:18px; }
+.app .connection-dialog .primary { background:url('../assets/gameplay/confirm-button.webp') center / 100% 100% no-repeat; color:#302441; border:0; box-shadow:none; }
+.game-terminal .crew-whisper { margin:1px 0; padding:0; font-size:.5rem; line-height:1.2; }
+.game-terminal .crew-actions { margin:2px 0; gap:4px; }
+.game-terminal .crew-actions .secondary { min-height:30px; padding:5px 8px; }
+.game-terminal .crew-actions > p,.game-terminal .crew-actions > small { font-size:.55rem; margin:2px 0; }
+@media (min-width:1000px) {
+ .game-terminal .rack-label { min-height:36px; }
+ .game-terminal .communication-portrait { width:36px; height:36px; }
+ .game-terminal .rack-label { padding-left:40px; }
+ .game-terminal .mission-ribbon > span { font-size:.6rem; }
+ .game-terminal .mission-ribbon strong { font-size:.9rem; }
+ .game-terminal .attack-scene .ship-scene { height:75px; }
+ .game-terminal .status-ship-art { max-height:75px; }
+}
+/* Keep secondary tools compact as well, so a desktop turn needs no page scroll. */
+@media (min-width:1000px) {
+ .game-terminal { padding-top:5px; padding-bottom:5px; --tile-height:clamp(48px,calc((100svh - 470px) / var(--crew-count,3) - 45px),64px); }
+ .game-terminal .board-heading h1 { margin:2px 0 4px; font-size:1rem; }
+ .game-terminal .board-topline .turn-pill { padding:3px 8px; }
+ .game-terminal .number-tracker { padding:4px 8px; margin:3px 0; }
+ .game-terminal .number-marker small { display:none; }
+ .game-terminal .shared-equipment .equipment-heading { display:none; }
+ .game-terminal .equipment-card { padding:2px 5px; }
+ .game-terminal .equipment-card .info-popover-trigger { width:26px; height:26px; }
+ .game-terminal .preserved-tools { align-items:start; }
+ .game-terminal .toolkit { border:0; padding:0; }
+ .game-terminal .toolkit summary { font-size:.6rem; min-height:16px; }
+ .game-terminal .toolkit summary small { display:none; }
+ .game-terminal .tool-card { min-height:30px; padding:3px; }
+ .game-terminal .tool-icon { min-width:14px; font-size:1rem; }
+ .game-terminal .mini-terminal { padding:0 6px; }
+ .game-terminal .mini-terminal .section-heading { display:none; }
+ .game-terminal .mini-messages { height:22px; max-height:22px; padding:0; }
+ .game-terminal .mini-messages p { padding:2px; }
+ .game-terminal .transmit { padding:2px 0; min-height:22px; }
+ .game-terminal .board-instruction { margin:0; padding:2px; font-size:.55rem; }
+ .game-terminal .selection-tray { min-height:20px; font-size:.55rem; }
+ .game-terminal .turn-tools { margin:3px 0; gap:5px; align-items:center; }
+ .game-terminal .turn-tools .secondary { min-height:28px; padding:4px 8px; font-size:.6rem; }
+ .game-terminal .turn-tools small { flex-basis:auto; font-size:.45rem; margin:0; }
+ .game-terminal .deduction-log { margin-top:3px; padding:2px 0; }
+ .game-terminal .deduction-log summary { min-height:18px; }
+ .game-terminal .mp-rack-heading { line-height:1; }
+}
+.app .game-terminal { padding:8px 12px; max-width:1600px; }
+.game-terminal .mini-terminal { min-height:0; }
+@media (min-width:1000px) {
+ .game-terminal .mission-ribbon { display:grid; grid-template-columns:1fr 1fr; gap:4px; }
+ .game-terminal .mission-ribbon progress,.game-terminal .mission-ribbon .turn-pill { grid-column:1 / -1; }
+ .game-terminal .attack-scene .panel-kicker { font-size:.4rem; line-height:1.1; }
+ .game-terminal .crew-whisper { display:none; }
+ .game-terminal .attack-scene .damage-caption { font-size:.55rem; line-height:1.2; }
+ .game-terminal .number-marker:has(.tracker-badge) { padding-bottom:20px; }
+}
+@media (max-width:999px) { .app .game-terminal { padding:5px; } }
+/* Reserve an independent lane for special-position badges at every size. */
+.game-terminal .number-marker:has(.tracker-badge) { padding-bottom:22px; }
+.game-terminal .number-marker .tracker-badge { top:auto; bottom:2px; }
+.game-terminal .toolkit,.game-terminal .mini-terminal { margin:0; }
+.game-terminal .turn-tools { padding:0; }
+.mp-page:has(.mp-board) { width:100%; max-width:none; padding:5px 10px; }
+.mp-page:has(.mp-board) > .back,.mp-page:has(.mp-board) > .text-button { display:inline-block; margin:0 12px 3px 0; padding:2px 4px; min-height:26px; font-size:.65rem; }
+.mp-page:has(.mp-board) .mp-status { margin:2px 0; padding:2px; font-size:.6rem; }
+.game-terminal .mp-rack-group { margin:0; }
+@media (min-width:1000px) { .game-terminal .number-marker:has(.tracker-badge) { padding-top:3px; } }
+/* Multiplayer's older rack margins and heading styles must not re-expand the deck. */
+.app .game-terminal.mp-board > h1 { font-size:1.1rem; margin:3px 0 5px; }
+.app .game-terminal.mp-board .rack { margin:0; }
+.app .game-terminal.mp-board .rack h2 { font-size:.85rem; gap:4px; }
+.app .game-terminal.mp-board .rack p { font-size:.6rem; line-height:1.2; }
+.app .game-terminal.mp-board .wire-row { padding:0; }
+.app .game-terminal.mp-board .mp-rack-heading { font-size:.5rem; margin:1px 0; }
+@media (max-width:700px) {
+ .app .game-terminal.mp-board .character-card { flex-wrap:nowrap; }
+ .app .game-terminal.mp-board .character-card .personal-power { width:auto; margin:0; }
+}
+@media (min-width:1000px) {
+ .app .game-terminal.mp-board { --tile-height:clamp(48px,calc((100svh - 520px) / var(--crew-count,3) - 65px),64px); }
+ .game-terminal .info-trigger { width:28px; height:28px; min-height:28px; padding:3px; border-radius:8px; }
+ .app .game-terminal.mp-board .rack-label { min-height:36px; }
+ .app .game-terminal.mp-board .rack { padding:4px 8px; }
+}
+/* The terminal itself contains the active session's navigation and status. */
+.game-session:has(.mp-board) > footer { display:none; }
+@media (min-width:1000px) {
+ .app .game-terminal.mp-board .rack { border-width:6px; border-image-width:9px; padding:2px 6px; }
+ .app .game-terminal.mp-board .rack-label { min-height:32px; }
+ .app .game-terminal.mp-board .communication-portrait { width:32px; height:32px; }
+ .app .game-terminal.mp-board .mp-target-summary { padding:2px 0; line-height:1.2; }
+ .app .game-terminal.mp-board .mp-actions .secondary { min-height:28px; }
+}

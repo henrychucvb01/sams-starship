@@ -1,7 +1,6 @@
 import { SetupPopup } from "./SetupPopup";
-import { useEffect, useState, type RefObject } from "react";
+import { useRef, useState, type RefObject } from "react";
 import type { MissionView, MissionAdapter } from "../types/presentation";
-import { ConfirmationDialog } from "./ConfirmationDialog";
 export function StartingInformation({
   state,
   adapter,
@@ -13,12 +12,18 @@ export function StartingInformation({
   adapter: MissionAdapter;
   headingRef: RefObject<HTMLHeadingElement | null>;
 }) {
-  const [selected, setSelected] = useState("");
-  const [confirming, setConfirming] = useState(false);
+  const lock = useRef(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
   const setup = state.crewFeatures?.startingInformation;
-  useEffect(()=>{if(setup?.pending){setSelected("");setConfirming(false);}},[setup?.pending]);
   if (!setup?.pending) return null;
-  const selectedSlot = state.ownCircuits.find((s) => s.id === selected);
+  async function reveal(id: string) {
+    if (lock.current || !adapter.selectStartingInformation) return;
+    lock.current = true; setBusy(true); setError("");
+    try { await adapter.selectStartingInformation(id, state.crewFeatures!.actionToken); }
+    catch (e) { setError(e instanceof Error ? e.message : "Unable to share circuit."); }
+    finally { lock.current = false; setBusy(false); }
+  }
   return (
     <SetupPopup><section
       className="starting-information"
@@ -33,9 +38,9 @@ export function StartingInformation({
           return (
             <button
               key={id}
-              aria-pressed={selected === id}
-              className={`starting-option circuit-blue ${selected === id ? "chosen" : ""}`}
-              onClick={() => setSelected(id)}
+              disabled={busy || !adapter.selectStartingInformation}
+              className="starting-option circuit-blue"
+              onClick={() => void reveal(id)}
               aria-label={`Share starting number ${slot.value}, slot ${state.ownCircuits.indexOf(slot) + 1}`}
             >
               <strong>{slot.value}</strong>
@@ -44,38 +49,9 @@ export function StartingInformation({
           );
         })}
       </div>
-      <p aria-live="polite">
-        {selectedSlot
-          ? `Number ${selectedSlot.value} will become visible to the whole crew.`
-          : "Choose one of your blue circuits. Nothing is revealed until you confirm."}
-      </p>
-      <button
-        className="primary"
-        disabled={!selectedSlot || !adapter.selectStartingInformation}
-        onClick={() => setConfirming(true)}
-      >
-        Review starting information
-      </button>
-      {onLeave && <button className="text-button setup-exit" onClick={onLeave}>Leave mission</button>}
-      {confirming && selectedSlot && (
-        <ConfirmationDialog
-          className="setup-review"
-          title="Reveal starting information?"
-          eyebrow="PUBLIC INFORMATION"
-          description={`Reveal Sam’s number ${selectedSlot.value}, slot ${state.ownCircuits.indexOf(selectedSlot) + 1}, to the whole crew. This information remains public.`}
-          busy={false}
-          confirmLabel="Confirm"
-          onCancel={() => setConfirming(false)}
-          fallbackFocus={headingRef}
-          onConfirm={async () => {
-            await adapter.selectStartingInformation?.(
-              selected,
-              state.crewFeatures!.actionToken,
-            );
-            setConfirming(false);
-          }}
-        />
-      )}
+      <p aria-live="polite">{busy ? "Sharing circuit…" : "Tap a blue circuit to share it with your crew and begin."}</p>
+      {error && <p role="alert">{error}</p>}
+      {onLeave && <button className="text-button setup-exit" disabled={busy} onClick={onLeave}>Leave mission</button>}
     </section></SetupPopup>
   );
 }

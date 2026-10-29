@@ -8,11 +8,10 @@ import { CrewPortrait } from "./CrewSelection";
 import { NumberTracker } from "../components/NumberTracker";
 import { CharacterCard, EquipmentCards } from "../components/CrewCards";
 import { CrewActionDialog } from "../components/CrewActionDialog";
-import { ConfirmationDialog } from "../components/ConfirmationDialog";
 import { ConnectionOverlay } from "../components/ConnectionOverlay";
 import { useEffects } from "../components/CircuitBoard";
 import type { CrewActionView } from "../types/crewPresentation";
-type Review =
+type ImmediateAction =
   | { kind: "connect"; own: string; target: string }
   | { kind: "solo"; number: number }
   | { kind: "setup"; id: string }
@@ -39,7 +38,34 @@ export function MultiplayerBoard({
     me = room.playerId;
   const { crew, tracker, effects, label, name, red } = projectRoom(room);
   const [own, setOwn] = useState("");
-  const [review, setReview] = useState<Review | null>(null);
+  const submitLock = useRef(false);
+  const [sending, setSending] = useState(false);
+  const [commandError, setCommandError] = useState("");
+  async function execute(request: ImmediateAction) {
+    if (submitLock.current || blocked) return;
+    let next: RoomCommand;
+    if (request.kind === "setup") {
+      if (!g.startingInformationChoices.includes(request.id)) return;
+      next = {type:"startingInformation", circuitId:request.id};
+    } else if (request.kind === "restart") next = {type:"restart"};
+    else {
+      if (!canAct) return;
+      if (request.kind === "solo") {
+        if (!g.selfMatches.some(s=>s.number===request.number && s.eligible)) return;
+        next = {type:"solo",number:request.number};
+      } else if (request.kind === "share") next = {type:"share",circuitId:request.id};
+      else {
+        const source = g.circuits.find(c=>c.id===request.own && c.owner===me && !c.restored);
+        const target = g.circuits.find(c=>c.id===request.target && c.owner!==me && !c.restored);
+        if (!source || source.value===undefined || source.kind==="red" || !target) return;
+        next = {type:"connect",ownId:source.id,targetId:target.id,number:source.value};
+      }
+    }
+    submitLock.current=true; setSending(true); setCommandError("");
+    try { await command(next); setOwn(""); }
+    catch(e) {setCommandError(e instanceof Error ? e.message : "Unable to submit action.");}
+    finally {submitLock.current=false;setSending(false);}
+  }
   const [action, setAction] = useState<{
     action: CrewActionView;
     token: string;
@@ -58,10 +84,9 @@ export function MultiplayerBoard({
     reset,
   );
   const turn = g.currentParticipant === me,
-    canAct = !blocked && turn && g.phase === "turns" && g.status === "playing";
+    canAct = !blocked && !sending && turn && g.phase === "turns" && g.status === "playing";
   useEffect(() => {
     setOwn("");
-    setReview(null);
     setAction(null);
   }, [g.turnNumber, g.phase, g.status, reset]);
   const drag = useCircuitDrag(canAct, (from, to) => {
@@ -70,28 +95,10 @@ export function MultiplayerBoard({
       const group = g.selfMatches.find(
         (s) => s.circuitIds.includes(from) && s.circuitIds.includes(to),
       );
-      if (group) setReview({ kind: "solo", number: group.number });
-    } else if (target) setReview({ kind: "connect", own: from, target: to });
+      if (group) execute({ kind: "solo", number: group.number });
+    } else if (target) execute({ kind: "connect", own: from, target: to });
   });
   const selected = g.circuits.find((c) => c.id === own && !c.restored);
-  const close = () => setReview(null);
-  const group =
-    review?.kind === "solo"
-      ? g.selfMatches.find((s) => s.number === review.number)
-      : undefined;
-  const starting =
-    review?.kind === "setup"
-      ? g.circuits.find((c) => c.id === review.id)
-      : undefined;
-  const source =
-    review?.kind === "connect"
-      ? g.circuits.find((c) => c.id === review.own)
-      : undefined;
-  const target =
-    review?.kind === "connect"
-      ? g.circuits.find((c) => c.id === review.target)
-      : undefined;
-  const publicSource = source?.sortLabel ?? source?.value;
   const openAction = (a: CrewActionView) =>
     setAction({ action: a, token: g.toolToken });
   const submitAction = async (
@@ -145,6 +152,7 @@ export function MultiplayerBoard({
             : "normal";
   return (
     <CrewReactionContext.Provider value={{effect,captain:g.captain,status:g.status}}><div
+      style={{"--crew-count": g.participants.length} as import("react").CSSProperties}
       className={`game-terminal mp-board ${effect?.kind === "damage" || effect?.kind === "critical" ? "screen-impact" : ""}`}
     >
       <h1 ref={headingRef} tabIndex={-1}>
@@ -157,8 +165,8 @@ export function MultiplayerBoard({
           {room.hostId === me && (
             <button
               className="primary"
-              disabled={blocked}
-              onClick={() => setReview({ kind: "restart" })}
+              disabled={blocked || sending}
+              onClick={() => execute({ kind: "restart" })}
             >
               Play again
             </button>
@@ -180,8 +188,8 @@ export function MultiplayerBoard({
                   key={id}
                   aria-label={`Blue ${c.value} · rack ${(c.rack ?? 0)+1}, slot ${c.position+1}`}
                   className="starting-option circuit-blue"
-                  disabled={blocked}
-                  onClick={() => setReview({ kind: "setup", id })}
+                  disabled={blocked || sending}
+                  onClick={() => execute({ kind: "setup", id })}
                 >
                   <strong>{c.value}</strong><small>Rack {(c.rack ?? 0) + 1} · Slot {c.position + 1}</small>
                 </button>
@@ -197,6 +205,7 @@ export function MultiplayerBoard({
             {g.startingInformation.length}/{room.playerCount} crew markers
             placed
           </p>
+          {commandError && <p role="alert">{commandError}</p>}
           {setupNotice}
           <div className="setup-exit-actions">
             {onLeaveSetup && <button className="text-button" onClick={onLeaveSetup}>Leave room</button>}
@@ -205,6 +214,7 @@ export function MultiplayerBoard({
         </section></SetupPopup>
       )}
       {g.phase === "startingInformation" && !g.startingInformationChoices.length && <p role="status">Your information is public. Waiting for your crewmates… {g.startingInformation.length}/{room.playerCount} crew markers placed</p>}
+      {commandError && g.phase !== "startingInformation" && <p role="alert">{commandError}</p>}
       <div className="deduction-layout">
         <div className="board-main">
           <NumberTracker tracker={tracker} />          <EquipmentCards
@@ -214,8 +224,7 @@ export function MultiplayerBoard({
           />
 
           <p className="drag-instructions">
-            Tap two circuits, or drag from your grip ⠿ to a target. Review and
-            confirm every connection.
+            Select your circuit, then tap a target to connect immediately. You can also drag from the grip ⠿.
           </p>
           <div className="board-table" ref={drag.board}>
             {drag.path && (
@@ -364,7 +373,7 @@ export function MultiplayerBoard({
                                             s.circuitIds.includes(c.id),
                                         );
                                         if (eligible) {
-                                          setReview({
+                                          execute({
                                             kind: "solo",
                                             number: eligible.number,
                                           });
@@ -373,7 +382,7 @@ export function MultiplayerBoard({
                                       }
                                       setOwn(c.id);
                                     } else if (selected)
-                                      setReview({
+                                      execute({
                                         kind: "connect",
                                         own: own,
                                         target: c.id,
@@ -455,7 +464,7 @@ export function MultiplayerBoard({
                 g.energy < 1 ||
                 g.publicReveals.some((r) => r.circuitId === own)
               }
-              onClick={() => setReview({ kind: "share", id: own })}
+              onClick={() => execute({ kind: "share", id: own })}
             >
               Share selected circuit
             </button>
@@ -466,7 +475,7 @@ export function MultiplayerBoard({
                   className="secondary compact"
                   disabled={!canAct}
                   key={s.number}
-                  onClick={() => setReview({ kind: "solo", number: s.number })}
+                  onClick={() => execute({ kind: "solo", number: s.number })}
                 >
                   Self-Connection · {s.number}
                 </button>
@@ -509,70 +518,6 @@ export function MultiplayerBoard({
           onConfirm={submitAction}
           onCancel={() => setAction(null)}
           fallbackFocus={headingRef}
-        />
-      )}
-      {review && (
-        <ConfirmationDialog
-          className={review.kind === "setup" ? "setup-review" : ""}
-          title={
-            review.kind === "setup"
-              ? "Reveal starting information"
-              : review.kind === "solo"
-                ? "Self-Connection"
-                : review.kind === "share"
-                  ? "Share your circuit"
-                  : review.kind === "restart"
-                    ? "Start another mission?"
-                    : "Confirm connection"
-          }
-          eyebrow="CREW COMMAND"
-          description={
-            review.kind === "setup"
-              ? `Make blue ${starting?.value} at ${label(review.id)} public to every crewmate.`
-              : review.kind === "solo"
-                ? `${group?.explanation} Circuits to clear: ${group?.circuitIds.map(label).join(", ")}`
-                : review.kind === "share"
-                  ? `Make ${label(review.id)} public. Costs one energy and your turn.`
-                  : review.kind === "restart"
-                    ? "Redeal the circuits, reset equipment and powers, and rotate the Captain."
-                    : `Connect your ${publicSource} at ${label(source?.id ?? "")} to ${label(target?.id ?? "")}. A match clears both circuits. A mistake damages the ship; red overload can end the mission.`
-          }
-          busy={false}
-          confirmDisabled={
-            blocked ||
-            (review.kind === "solo"
-              ? !group?.eligible || !canAct
-              : review.kind === "connect"
-                ? !canAct || source?.kind === "red"
-                : review.kind === "setup"
-                  ? !g.startingInformationChoices.includes(review.id)
-                  : false)
-          }
-          confirmLabel="Confirm"
-          onCancel={close}
-          fallbackFocus={headingRef}
-          onConfirm={async () => {
-            if (review.kind === "setup")
-              await command({
-                type: "startingInformation",
-                circuitId: review.id,
-              });
-            else if (review.kind === "solo")
-              await command({ type: "solo", number: review.number });
-            else if (review.kind === "share")
-              await command({ type: "share", circuitId: review.id });
-            else if (review.kind === "restart")
-              await command({ type: "restart" });
-            else if (source?.value !== undefined && target)
-              await command({
-                type: "connect",
-                ownId: source.id,
-                targetId: target.id,
-                number: source.value,
-              });
-            close();
-            setOwn("");
-          }}
         />
       )}
     </div></CrewReactionContext.Provider>

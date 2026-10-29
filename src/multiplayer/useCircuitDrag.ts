@@ -4,7 +4,7 @@ import {
   useState,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-/** A drag only selects a pair for review. It never submits a room command. */
+/** A completed drag reports one circuit pair to the board; authoritative submission stays in the board command handler. */
 export function useCircuitDrag(
   enabled: boolean,
   onPair: (from: string, to: string) => void,

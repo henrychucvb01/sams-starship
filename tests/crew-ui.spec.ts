@@ -6,20 +6,15 @@ async function begin(page:Page,query=''){
   await page.getByRole("button", {name:"Continue solo", exact:true}).click();
   await page.getByRole("button", {name:"Play mode", exact:true}).click();await page.getByRole('button',{name:'Begin Mission'}).click();
 }
-async function setup(page:Page){await page.locator('.starting-option').last().click();await page.getByRole('button',{name:'Review starting information',exact:true}).click();await page.getByRole('dialog',{name:'Reveal starting information?'}).getByRole('button',{name:'Confirm',exact:true}).click();}
+async function setup(page:Page){await page.locator('.starting-option').last().click();await expect(page.locator('.setup-dialog')).toHaveCount(0);}
 async function human(page:Page){for(let i=0;i<10;i++){if((await page.locator('.turn-pill').innerText()).includes("Sam's"))return;await page.clock.runFor(1500);}}
-test('real setup: explicit choice, cancellation, Captain first turn, markers and accessible explanations',async({page},info)=>{
+test('real setup: one-tap choice, Captain first turn, markers and accessible explanations',async({page},info)=>{
  await begin(page,'?captain=1');
  await expect(page.locator('.rack-nova .captain-badge')).toHaveCount(1);
  await expect(page.locator('.rack-sam .wire-tile').first()).toBeDisabled();
- await expect(page.getByRole('button',{name:'Review starting information',exact:true})).toBeDisabled();
+ await expect(page.locator('.starting-option').first()).toBeEnabled();
  await page.clock.runFor(10000);await expect(page.getByText('5:00',{exact:true})).toBeVisible();
- await page.locator('.starting-option').first().click();
- await page.getByRole('button',{name:'Review starting information',exact:true}).click();
- const dialog=page.getByRole('dialog',{name:'Reveal starting information?'});
- await expect(dialog.getByRole('button',{name:'Cancel',exact:true})).toBeFocused();
- await page.keyboard.press('Escape');await expect(page.locator('.information-marker')).toHaveCount(0);
- await page.getByRole('button',{name:'Review starting information',exact:true}).click();await dialog.getByRole('button',{name:'Confirm',exact:true}).dblclick();
+ await page.locator('.starting-option').first().click();await expect(page.locator('dialog[open]')).toHaveCount(0);
  await expect(page.locator('.information-marker')).toHaveCount(3);await expect(page.locator('.turn-pill')).toContainText("Nova's");
  await expect(page.locator('.rack-sam [data-slot="sam-0"] .information-marker')).toHaveCount(1);
  const badge=page.locator('.rack-nova .captain-badge');if(info.project.name==='desktop')await badge.hover();else await badge.tap();
@@ -51,7 +46,7 @@ test('real shared equipment: unlock through Self-Connection, any-turn modal surv
  await begin(page,'?equipment=1');await setup(page);
  await expect(page.locator('.equipment-locked')).toHaveCount(3);
  await page.locator('[data-slot="sam-2"]').click();await page.getByRole('button',{name:'Self-Connection',exact:true}).click();
- const solo=page.getByRole('dialog',{name:'Self-Connection',exact:true});await expect(solo.locator('li')).toHaveCount(4);await solo.getByRole('button',{name:'Confirm',exact:true}).click();
+ await expect(page.locator('dialog[open]')).toHaveCount(0);
  await expect(page.locator('.equipment-ready')).toHaveCount(3);await expect(page.locator('.turn-pill')).toContainText("Nova's");
  const probe=page.locator('.equipment-card').filter({has:page.getByRole('heading',{name:'Pulse Probe',exact:true})});await probe.getByRole('button',{name:'Use equipment',exact:true}).click();
  let modal=page.getByRole('dialog',{name:'Pulse Probe',exact:true});await modal.getByLabel('Hidden crew circuit',{exact:true}).selectOption('nova-0');await modal.getByLabel('Threshold',{exact:true}).selectOption('6');
@@ -70,7 +65,7 @@ test('real Isolate Overload: engine eligibility, all own reds previewed, free ca
   const ownId=(await blue[0].getAttribute('data-slot'))!,value=truth.find(t=>t.id===ownId)!.value;
   const active=new Set(await page.locator('.rack-nova .wire-tile:not(.cleared),.rack-pip .wire-tile:not(.cleared)').evaluateAll(els=>els.map(e=>e.getAttribute('data-slot'))));
   const target=truth.find(t=>active.has(t.id)&&t.kind==='blue'&&t.value===value)!;
-  await blue[0].click();await page.locator(`[data-slot="${target.id}"]`).click();await page.getByRole('button',{name:'Connect circuits',exact:true}).click();await page.clock.runFor(3100);
+  await blue[0].click();await page.locator(`[data-slot="${target.id}"]`).click();await page.clock.runFor(3100);
  }
  await human(page);const isolate=page.getByRole('button',{name:'Isolate Overload',exact:true});await expect(isolate).toBeEnabled();await isolate.click();const modal=page.getByRole('dialog',{name:'Isolate Overload',exact:true});await expect(modal).toContainText('Sam, slot 2');await expect(modal).toContainText('Sam, slot 3');await page.keyboard.press('Escape');await expect(page.locator('.rack-sam .circuit-red.cleared')).toHaveCount(0);await isolate.click();await modal.getByRole('button',{name:'Confirm',exact:true}).dblclick();await expect(page.locator('.rack-sam .circuit-red.cleared')).toHaveCount(2);await expect(page.getByText('100%',{exact:true})).toBeVisible();
  await expect(page.locator('.wire-isolate')).toHaveCount(2);

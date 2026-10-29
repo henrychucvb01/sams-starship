@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { CrewSelection } from "../multiplayer/CrewSelection";
+import { CrewSelection, CrewPortrait } from "../multiplayer/CrewSelection";
 import { RoomScreen, multiplayerOrigin } from "../multiplayer/RoomScreen";
 import { hasSavedRoom } from "../multiplayer/roomClient";
 import adventureTitle from "../assets/game-modes/adventure-title.webp";
@@ -7,7 +7,7 @@ import "../styles/game-modes.css";
 import { AdventurePanels } from "../components/AdventurePanels";
 import { TitleScreen } from "../components/TitleScreen";
 import { CircuitBoard } from "../components/CircuitBoard";
-import { Ship, Sam } from "../components/Ship";
+import { Ship } from "../components/Ship";
 import {
   createEngineAdapter,
   TRAINING_MISSIONS,
@@ -99,7 +99,7 @@ export function App({
   const ended =
     screen === "game" && state.status !== "playing" && resultVisible;
   return (
-    <div className={`app ${reduced ? "reduce-motion" : ""}`}>
+    <div className={`app ${screen === "game" || screen === "multiplayer" ? "game-session" : ""} ${reduced ? "reduce-motion" : ""}`}>
       <div className="stars" aria-hidden="true" />
       {screen !== "menu" && screen !== "crew" && screen !== "missions" && <header className="topbar">
         <button
@@ -262,9 +262,7 @@ export function App({
                 ? "TRANSMISSION RECEIVED · ALL CLEAR"
                 : "EMERGENCY TRANSMISSION · SIGNAL LOST"}
             </div>
-            <Sam
-              expression={state.status === "victory" ? "celebrating" : "sad"}
-            />
+            <div className="result-portrait"><CrewPortrait index={0} character={crewCharacters[0]} name="Your crewmate" /></div>
             <h1 ref={heading} tabIndex={-1}>
               {state.status === "victory"
                 ? "Mission Complete"
@@ -312,7 +310,7 @@ export function App({
           </section>
         )}
       </main>
-      {screen !== "menu" && screen !== "crew" && screen !== "missions" && <footer>
+      {screen !== "menu" && screen !== "crew" && screen !== "missions" && screen !== "game" && <footer>
         <span>SLBUTTER ORIGINAL</span>
         <span>Made for a little everyday adventure. ✦</span>
       </footer>}

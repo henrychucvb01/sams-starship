@@ -4,8 +4,6 @@ import { test, expect, type Page } from "@playwright/test";
 async function finishSetup(page: Page) {
   if (!(await page.locator(".starting-options button").count())) return;
   await page.locator(".starting-options button").last().click();
-  await page.getByRole("button", {name: "Review starting information", exact: true}).click();
-  await page.getByRole("dialog", {name: "Reveal starting information?"}).getByRole("button", {name: "Confirm", exact: true}).click();
 }
 async function launch(page: Page, path = "/") {
   await page.clock.install();
@@ -107,7 +105,6 @@ async function solve(page: Page) {
     if (move) {
       await page.locator(`[data-slot="${move.a.id}"]`).click();
       await page.locator(`[data-slot="${move.b.id}"]`).click();
-      await page.getByRole("button", { name: /^Connect / }).click();
     } else {
       const solo = own.find(
         (c) =>
@@ -120,7 +117,6 @@ async function solve(page: Page) {
         const pair = own.filter((c) => c.value === solo.value);
         await page.locator(`[data-slot="${pair[0].id}"]`).click();
         await page.locator(`[data-slot="${pair[1].id}"]`).click();
-        await page.getByRole("button", { name: "Connect Pair" }).click();
       } else if (own.length) {
         const transmissions = await page
           .getByRole("log", { name: "Crew transmissions" })
@@ -206,10 +202,6 @@ test("real engine mistake triggers impact, public reveal, AI turn and fatal defe
   const own = page.locator(".rack-sam .wire-tile").last();
   await own.click();
   await page.locator(".rack-nova .wire-tile").first().click();
-  await expect(
-    page.getByRole("dialog", { name: "Are you sure?" }),
-  ).toBeVisible();
-  await page.getByRole("button", { name: /^Connect / }).click();
   await expect(page.locator(".attack-scene")).toHaveClass(/under-attack/);
   await expect(page.locator(".projectile")).toHaveCount(1);
   await expect(page.locator(".rack-nova .wire-tile").first()).toHaveClass(
@@ -276,106 +268,20 @@ test("production navigation, persisted preferences, off-turn controls, timeout a
   await card.getByRole("combobox").selectOption("Hard");
   await expect(card.locator(".illustrated-mode-button")).toBeDisabled();
 });
-test("isolated turn/reveal fixtures: keyboard confirmation, cancel, duplicate prevention, reduced motion", async ({
-  page,
-}) => {
-  await launch(page, "/tests/fixtures/harness.html");
-  const sam = page.getByRole("button", {
-    name: "Sam circuit 2, slot 1",
-    exact: true,
-  });
-  await sam.focus();
-  await page.keyboard.press("Enter");
-  await page
-    .getByRole("button", { name: "Nova, slot 1, hidden", exact: true })
-    .click();
-  await expect(
-    page.getByRole("textbox", { name: "Declared number" }),
-  ).toHaveValue("2");
-  await expect(
-    page.getByRole("textbox", { name: "Declared number" }),
-  ).toHaveAttribute("readonly", "");
-  await page.getByRole("button", { name: "Cancel", exact: true }).click();
-  await expect(
-    page.getByRole("dialog", { name: "Are you sure?" }),
-  ).not.toBeVisible();
-  await page
-    .getByRole("button", { name: "Nova, slot 1, hidden", exact: true })
-    .click();
-  await page.getByRole("button", { name: /^Connect / }).dblclick();
-  await expect(page.locator("#command-count")).toHaveText("1");
-  await page.getByRole("button", { name: "Fixture nova", exact: true }).click();
-  await expect(sam).toBeDisabled();
-  await expect(page.locator(".rack-nova")).toHaveClass(/active-rack/);
-  await page
-    .getByRole("button", { name: "Fixture damage", exact: true })
-    .click();
-  await expect(page.locator(".attack-scene")).toHaveClass(/under-attack/);
-  await page.clock.runFor(1200);
-  await expect(
-    page.getByRole("button", { name: "Nova, slot 1, clue 4", exact: true }),
-  ).toBeVisible();
-  await page
-    .getByRole("button", { name: "Fixture success", exact: true })
-    .click();
-  await expect(page.locator(".connection-arc path")).toHaveAttribute("d", /^M/);
-  await expect(
-    page.getByRole("button", {
-      name: "Sam circuit 2, slot 1, restored",
-      exact: true,
-    }),
-  ).toBeDisabled();
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
-  await page.getByRole("checkbox").check();
-  await page.keyboard.press("Escape");
-  await page
-    .getByRole("button", { name: "Fixture damage", exact: true })
-    .click();
-  await page.clock.runFor(700);
-  await expect(page.locator(".attack-vfx")).toBeHidden();
+test("isolated fixtures: keyboard pair submits once and off-turn controls stay disabled", async ({page}) => {
+ await launch(page,"/tests/fixtures/harness.html");
+ const sam=page.getByRole("button",{name:"Sam circuit 2, slot 1",exact:true});await sam.focus();await page.keyboard.press("Enter");await page.getByRole("button",{name:"Nova, slot 1, hidden",exact:true}).click();
+ await expect(page.locator("#command-count")).toHaveText("1");await expect(page.locator("dialog[open]")).toHaveCount(0);
+ await page.getByRole("button",{name:"Fixture nova",exact:true}).click();await expect(sam).toBeDisabled();await expect(page.locator(".rack-nova")).toHaveClass(/active-rack/);
+ await page.getByRole("button",{name:"Fixture damage",exact:true}).click();await expect(page.locator(".attack-scene")).toHaveClass(/under-attack/);await page.clock.runFor(1200);await expect(page.getByRole("button",{name:"Nova, slot 1, clue 4",exact:true})).toBeVisible();
+ await page.getByRole("button",{name:"Fixture success",exact:true}).click();await expect(page.locator(".connection-arc path")).toHaveAttribute("d",/^M/);
+});
+test("Self-Match clears all four; rejected pair explains eligibility without damage or turn loss", async ({page}) => {
+ await launch(page,"/tests/fixtures/real.html?self=1");await page.locator('[data-slot="sam-2"]').click();await page.locator('[data-slot="sam-3"]').click();await expect(page.locator('.rack-sam .wire-tile.cleared')).toHaveCount(4);await expect(page.locator('dialog[open]')).toHaveCount(0);
+ await page.goto('/tests/fixtures/real.html');await page.getByRole('button',{name:"Let's Fly!"}).click();await page.getByRole('button',{name:'Continue solo',exact:true}).click();await page.getByRole('button',{name:'Play mode',exact:true}).click();await page.getByRole('button',{name:'Begin Mission'}).click();await finishSetup(page);await page.locator('[data-slot="sam-0"]').click();await page.locator('[data-slot="sam-1"]').click();
+ await expect(page.locator('.board-instruction')).toContainText('all remaining copies');await expect(page.locator('dialog[open]')).toHaveCount(0);await expect(page.getByText('100%',{exact:true})).toBeVisible();await expect(page.locator('.turn-pill')).toContainText("Sam's");
 });
 
-test("Self-Match clears all four; rejected pair explains eligibility without damage or turn loss", async ({
-  page,
-}) => {
-  await launch(page, "/tests/fixtures/real.html?self=1");
-  const before = await page
-    .locator(".rack-sam .wire-tile")
-    .evaluateAll((els) => els.map((e) => e.getAttribute("data-slot")));
-  await page.locator('[data-slot="sam-2"]').click();
-  await page.locator('[data-slot="sam-3"]').click();
-  await expect(
-    page.getByRole("button", { name: "Connect Pair", exact: true }),
-  ).toBeVisible();
-  await page.getByRole("button", { name: "Connect Pair", exact: true }).click();
-  await expect(page.locator(".rack-sam .wire-tile.cleared")).toHaveCount(4);
-  await expect(page.locator(".connection-arc path")).toHaveAttribute("d", /^M/);
-  expect(
-    await page
-      .locator(".rack-sam .wire-tile")
-      .evaluateAll((els) => els.map((e) => e.getAttribute("data-slot"))),
-  ).toEqual(before);
-  await page.goto("/tests/fixtures/real.html");
-  await page.getByRole("button", { name: "Let's Fly!" }).click();
-  await page.getByRole("button", {name:"Continue solo", exact:true}).click();
-  await page.getByRole("button", {name:"Play mode", exact:true}).click();
-
-  await page.getByRole("button", { name: "Begin Mission" }).click();
-  await finishSetup(page);
-  await waitHuman(page);
-  await page.locator('[data-slot="sam-0"]').click();
-  await page.locator('[data-slot="sam-1"]').click();
-  await expect(
-    page.getByRole("button", { name: "Connect Pair", exact: true }),
-  ).toBeDisabled();
-  await expect(
-    page.getByRole("dialog", { name: "Are you sure?" }),
-  ).toContainText("all remaining copies");
-  await page.getByRole("button", { name: "Cancel", exact: true }).click();
-  await expect(page.getByText("100%", { exact: true })).toBeVisible();
-  await expect(page.locator(".turn-pill")).toContainText("Sam's");
-  await expect(page.locator(".attack-vfx")).toHaveCount(0);
-});
 test("Easy toolkit locks, limited hint and shield interception from real engine", async ({
   page,
 }, info) => {
@@ -401,7 +307,6 @@ test("Easy toolkit locks, limited hint and shield interception from real engine"
   await page.clock.runFor(800);
   await page.locator(".rack-sam .wire-tile").last().click();
   await page.locator(".rack-nova .wire-tile").first().click();
-  await page.getByRole("button", { name: /^Connect / }).click();
   await expect(
     page.getByLabel("Shield absorbed the attack", { exact: true }),
   ).toBeVisible();
@@ -453,7 +358,7 @@ test("later-mission scanner and dual scanner target controls use real tool outco
   await expect(page.locator(".connection-arc")).toBeVisible();
 });
 
-test("drag Self-Match is confirmation-only and cancel costs nothing, mouse and touch", async ({
+test("drag Self-Match connects immediately, mouse and touch", async ({
   page,
 }, info) => {
   await launch(page, "/tests/fixtures/real.html?self=1");
@@ -488,24 +393,11 @@ test("drag Self-Match is confirmation-only and cancel costs nothing, mouse and t
     await expect(page.locator(".drag-wire path")).toHaveAttribute("d", /^M/);
     await page.mouse.up();
   }
-  await expect(
-    page.getByRole("dialog", { name: "Are you sure?" }),
-  ).toContainText("Are you sure?");
-  await expect(
-    page.getByRole("button", { name: "Connect Pair", exact: true }),
-  ).toBeVisible();
-  await expect(page.locator(".rack-sam .wire-tile.cleared")).toHaveCount(0);
-  await page.getByRole("button", { name: "Cancel", exact: true }).click();
-  await expect(page.getByText("100%", { exact: true })).toBeVisible();
-  await expect(page.locator(".turn-pill")).toContainText("Sam's");
-  await expect(page.locator(".rack-sam .wire-tile.cleared")).toHaveCount(0);
-  await source.click();
-  await target.click();
-  await page.getByRole("button", { name: "Connect Pair", exact: true }).click();
+  await expect(page.locator("dialog[open]")).toHaveCount(0);
   await expect(page.locator(".rack-sam .wire-tile.cleared")).toHaveCount(4);
 });
 
-test("drag to crew with mobile edge scrolling opens confirmation and cancellation is free", async ({
+test("drag to crew with mobile edge scrolling submits immediately", async ({
   page,
 }, info) => {
   await launch(page, "/tests/fixtures/real.html");
@@ -531,6 +423,13 @@ test("drag to crew with mobile edge scrolling opens confirmation and cancellatio
       if (r.y >= 65 && r.y + r.height < 800) break;
       await page.clock.runFor(100);
     }
+    // Leave the scroll edge before measuring the drop. Real time can pass
+    // between protocol calls even while the test advances animation frames.
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: [{x:195,y:400}],
+    });
+    await page.clock.runFor(50);
     const b = (await target.boundingBox())!;
     expect(b.y).toBeGreaterThanOrEqual(0);
     await session.send("Input.dispatchTouchEvent", {
@@ -558,17 +457,9 @@ test("drag to crew with mobile edge scrolling opens confirmation and cancellatio
     await page.clock.runFor(40);
     await page.mouse.up();
   }
-  await expect(
-    page.getByRole("dialog", { name: "Are you sure?" }),
-  ).toContainText("Are you sure?");
-  await expect(
-    page.getByRole("button", { name: "Connect circuits", exact: true }),
-  ).toBeVisible();
+  await expect(page.locator("dialog[open]")).toHaveCount(0);
   await expect(page.locator(".drag-wire")).toHaveCount(0);
-  await page.getByRole("button", { name: "Cancel", exact: true }).click();
-  await expect(page.getByText("100%", { exact: true })).toBeVisible();
-  await expect(page.locator(".turn-pill")).toContainText("Sam's");
-  await expect(page.locator(".wire-tile.cleared")).toHaveCount(0);
+  await expect(page.getByText("85%",{exact:true})).toBeVisible();
 });
 
 async function launchLab(page: Page, kind: "yellow" | "red") {
@@ -596,7 +487,6 @@ test("number tracker shows four-copy completion from actual Self-Match", async (
   ).toBeVisible();
   await page.locator('[data-slot="sam-2"]').click();
   await page.locator('[data-slot="sam-3"]').click();
-  await page.getByRole("button", { name: "Connect Pair", exact: true }).click();
   await expect(
     page.getByLabel("Number 2: 4 of 4 resolved, completed", { exact: true }),
   ).toHaveClass(/number-complete/);
@@ -636,9 +526,6 @@ test("yellow lab reveals only authorized types and updates separate category pro
   );
   await page.locator('[data-slot="sam-6"]').click();
   await page.locator('[data-slot="nova-8"]').click();
-  await page
-    .getByRole("button", { name: "Connect circuits", exact: true })
-    .click();
   await expect(
     page.locator('.number-tracker [data-label="8A"]'),
   ).toHaveAttribute("data-certainty", "confirmed");
@@ -696,9 +583,6 @@ test("red lab warns only about public identities and red trigger has distinct fa
   await page.clock.runFor(800);
   await page.locator('[data-slot="sam-0"]').click();
   await page.locator('[data-slot="nova-13"]').click();
-  await page
-    .getByRole("button", { name: "Connect circuits", exact: true })
-    .click();
   await expect(page.locator(".critical-flash")).toBeVisible();
   await expect(page.locator('[data-slot="nova-13"]')).toHaveAttribute(
     "data-circuit-type",
@@ -816,70 +700,10 @@ test("tracker badges stay inside existing tiles, preserve progress and distingui
     fullPage: true,
   });
 });
-test("connection modal overlays without pushing the board, traps focus, cancels with Escape and submits once", async ({
-  page,
-}, info) => {
-  await launch(page, "/tests/fixtures/real.html");
-  const source = page.locator('[data-slot="sam-0"]'),
-    target = page.locator('[data-slot="nova-0"]');
-  await source.click();
-  const before = (await page.locator(".board-main").boundingBox())!;
-  await target.click();
-  const dialog = page.getByRole("dialog", { name: "Are you sure?" });
-  await expect(dialog).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Cancel", exact: true }),
-  ).toBeFocused();
-  await expect(dialog).toContainText("Nova");
-  await expect(dialog).toContainText("slot 1");
-  await expect(dialog.locator(".preview-hidden strong")).toHaveText("?");
-  await expect(
-    dialog.getByRole("textbox", { name: "Declared number" }),
-  ).toHaveValue("1");
-  expect(await dialog.evaluate((el) => el.matches(":modal"))).toBe(true);
-  expect(await dialog.evaluate((el) => getComputedStyle(el).position)).toBe(
-    "fixed",
-  );
-  const backdrop = await dialog.evaluate(
-    (el) => getComputedStyle(el, "::backdrop").backgroundColor,
-  );
-  expect(backdrop).not.toBe("rgba(0, 0, 0, 0)");
-  const after = (await page.locator(".board-main").boundingBox())!;
-  expect(after.height).toBeLessThanOrEqual(before.height + 1);
-  expect(Math.abs(after.width - before.width)).toBeLessThanOrEqual(1);
-  const box = (await dialog.boundingBox())!,
-    viewport = page.viewportSize()!;
-  expect(
-    Math.abs(box.x + box.width / 2 - viewport.width / 2),
-  ).toBeLessThanOrEqual(2);
-  expect(box.width).toBeLessThan(viewport.width);
-  expect(box.height).toBeLessThan(viewport.height);
-  await page.keyboard.press("Tab");
-  await expect(
-    dialog.getByRole("button", { name: "Connect circuits", exact: true }),
-  ).toBeFocused();
-  await page.keyboard.press("Tab");
-  expect(
-    await dialog.evaluate((el) => el.contains(document.activeElement)),
-  ).toBe(true);
-  await page.screenshot({
-    path: `docs/previews/${info.project.name}-connection-modal.png`,
-    fullPage: true,
-  });
-  await page.keyboard.press("Escape");
-  await expect(dialog).toHaveCount(0);
-  await expect(target).toBeFocused();
-  await expect(page.getByText("100%", { exact: true })).toBeVisible();
-  await expect(page.locator(".turn-pill")).toContainText("Sam's");
-  await target.click();
-  await dialog
-    .getByRole("button", { name: "Connect circuits", exact: true })
-    .dblclick();
-  await expect(dialog).toHaveCount(0);
-  await expect(page.getByText("85%", { exact: true })).toBeVisible();
-  await expect(page.locator(".attack-vfx")).toHaveCount(1);
+test("circuit pair submits without a modal or layout shift", async ({page}) => {
+ await launch(page,"/tests/fixtures/real.html");const source=page.locator('[data-slot="sam-0"]'),target=page.locator('[data-slot="nova-0"]');const before=(await page.locator('.board-main').boundingBox())!;
+ await source.click();await target.click();await expect(page.locator('dialog[open]')).toHaveCount(0);await expect(page.getByText('85%',{exact:true})).toBeVisible();const after=(await page.locator('.board-main').boundingBox())!;expect(Math.abs(before.width-after.width)).toBeLessThanOrEqual(1);await expect(page.locator('.attack-vfx')).toHaveCount(1);
 });
-
 test("tools share a centered modal and cancel preserves charges and board layout", async ({
   page,
 }, info) => {

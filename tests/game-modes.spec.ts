@@ -28,7 +28,7 @@ test('approved adventure artwork, panel selection, difficulty locks and crew-fir
  await expect(modes.first().locator('.panel-select')).toHaveCSS('box-shadow','none');
  await page.setViewportSize(info.project.name==='mobile'?{width:390,height:844}:{width:1440,height:1000});
  await page.screenshot({path:`docs/previews/${info.project.name}-adventure-art.png`,fullPage:true});
- await page.getByRole('button',{name:'Play mode',exact:true}).click();await page.getByRole('button',{name:'Begin Mission'}).click();await expect(page.locator('.wire-tile')).toHaveCount(48);await expect(page.locator('header.topbar,footer')).toHaveCount(2);expect(errors).toEqual([]);
+ await page.getByRole('button',{name:'Play mode',exact:true}).click();await page.getByRole('button',{name:'Begin Mission'}).click();await expect(page.locator('.wire-tile')).toHaveCount(48);await expect(page.locator('header.topbar')).toHaveCount(1);await expect(page.locator('footer')).toHaveCount(0);expect(errors).toEqual([]);
 });
 test('reduced motion and existing training remain accessible',async({page})=>{
  await page.emulateMedia({reducedMotion:'reduce'});await page.goto('/tests/fixtures/real.html');await page.getByRole('button',{name:"Let's Fly!"}).click();await page.getByRole('button',{name:"Continue solo",exact:true}).click();

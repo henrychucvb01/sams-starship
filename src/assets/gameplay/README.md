@@ -13,3 +13,5 @@ All files are optimized crops/exports of owner-approved artwork. No replacement 
 Ship status reuses the approved `title/approved-ship.webp`. Character artwork reuses the previously approved crew cutouts and server-selected cosmetic roster. Nova and Pip retain their existing letter portraits inside the approved frame: individual approved Nova/Pip portrait files have not been supplied. Equipment/power controls retain their current illustrations and behavior.
 
 Numbers, questions, slot labels, selection, progress pips, messages, status values and actions are live HTML. Cartridge lights never contribute to progress calculations. No engine, AI, deck, room service or game rules changed.
+
+`damaged-monitor.webp`: blank second panel cropped (25,280,724,466) from owner-approved “Damaged Spaceship Bridge: DANGER status.png”, Library libfile_a46dd34618688191892e36c833c36daf. Used only as the defeat result frame; baked status labels from the source are excluded.

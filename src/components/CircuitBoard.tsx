@@ -18,7 +18,6 @@ import { CrewActionDialog } from "./CrewActionDialog";
 import { StartingInformation } from "./StartingInformation";
 import type { CrewActionView } from "../types/crewPresentation";
 import { NumberTracker } from "./NumberTracker";
-import { ConnectionDialog } from "./ConnectionDialog";
 import { ConnectionOverlay } from "./ConnectionOverlay";
 import { ConfirmationDialog } from "./ConfirmationDialog";
 import { icons, descriptions } from "./Toolkit";
@@ -99,7 +98,6 @@ export function CircuitBoard({
   const [crewAction, setCrewAction] = useState<CrewActionView | null>(null);
   const [crewToken, setCrewToken] = useState("");
   const openCrewAction = (action: CrewActionView) => {setCrewToken(state.crewFeatures?.actionToken ?? "");setCrewAction(action);};
-  const [utility, setUtility] = useState<"solo" | null>(null);
   const [dragNotice, setDragNotice] = useState("");
   const [own, setOwn] = useState("");
   const [target, setTarget] = useState("");
@@ -112,7 +110,6 @@ export function CircuitBoard({
   );
   const clearSelection = () => {
     setCrewAction(null);
-    setUtility(null);
     setDrag(null);
     pointer.current = null;
     setOwn("");
@@ -146,9 +143,9 @@ export function CircuitBoard({
     previous.current = state.event.id;
   }, [state.event.id]);
   useEffect(() => {
-    adapter.setInteractionPending?.(!!crewAction || declaring || !!selectedTool || !!utility);
+    adapter.setInteractionPending?.(!!crewAction || declaring || !!selectedTool);
     return () => adapter.setInteractionPending?.(false);
-  }, [adapter, crewAction, declaring, selectedTool, utility]);
+  }, [adapter, crewAction, declaring, selectedTool]);
   const effect = useEffects(state.effects ?? [], reset);
   const boardRef = useRef<HTMLDivElement>(null);
   const [arc, setArc] = useState({ path: "", width: 1, height: 1 });
@@ -369,6 +366,7 @@ export function CircuitBoard({
   function connect() {
     if (busy || !canAct || !ownSlot || (!targetSlot && !secondOwnSlot)) return;
     setBusy(true);
+    setDeclaring(false);
     setDragNotice("");
     try {
       if (secondOwnSlot) {
@@ -394,6 +392,7 @@ export function CircuitBoard({
       setBusy(false);
     }
   }
+  useEffect(() => { if (declaring) connect(); }, [declaring, own, target, secondOwn]);
   const hullStage =
     state.hull === 0
       ? "shutdown"
@@ -533,6 +532,7 @@ export function CircuitBoard({
   }
   return (
     <CrewReactionContext.Provider value={{effect, captain:state.crewFeatures?.captainId, status:state.status}}><section
+      style={{"--crew-count": state.rooms.length + 1} as import("react").CSSProperties}
       className={`game-terminal deduction-screen effect-${effect?.kind ?? "idle"} ${effect?.kind === "damage" || effect?.kind === "critical" ? "screen-impact" : ""}`}
     >
       <div className="board-heading">
@@ -583,8 +583,7 @@ export function CircuitBoard({
           )}
 
           <p className="drag-instructions">
-            Tap two circuits, or drag from Sam’s grip ⠿ to a target. Every
-            connection needs confirmation.
+            Select your circuit, then tap a target to connect immediately. You can also drag from the grip ⠿.
           </p>
           <div className="board-table" ref={boardRef}>
             {drag && (
@@ -877,65 +876,12 @@ export function CircuitBoard({
             {ownSlot && (targetSlot || secondOwnSlot) && !declaring && (
               <button
                 className="secondary compact"
-                onClick={() => setDeclaring(true)}
+                onClick={connect}
               >
-                Review connection
+                Connect circuits
               </button>
             )}
           </div>
-          {declaring && ownSlot && (targetSlot || secondOwnSlot) && (
-            <ConnectionDialog
-              source={ownSlot}
-              target={secondOwnSlot ?? targetSlot!}
-              targetName={secondOwnSlot ? "Sam" : targetRoom!.name}
-              targetPosition={
-                secondOwnSlot
-                  ? state.ownCircuits.findIndex(
-                      (s) => s.id === secondOwnSlot.id,
-                    ) + 1
-                  : targetRoom!.slots.findIndex((s) => s.id === target) + 1
-              }
-              selfMatch={!!secondOwnSlot}
-              explanation={
-                secondOwnSlot
-                  ? state.selfMatches?.find((m) => m.number === ownSlot.value)
-                      ?.explanation
-                  : undefined
-              }
-              busy={busy || !canAct}
-              confirmDisabled={
-                !!secondOwnSlot &&
-                !state.selfMatches?.some(
-                  (m) =>
-                    m.eligible &&
-                    m.circuitIds.includes(ownSlot.id) &&
-                    m.circuitIds.includes(secondOwnSlot.id),
-                )
-              }
-              resolvedSlots={
-                secondOwnSlot
-                  ? state.selfMatches
-                      ?.find(
-                        (m) =>
-                          m.circuitIds.includes(ownSlot.id) &&
-                          m.circuitIds.includes(secondOwnSlot.id),
-                      )
-                      ?.circuitIds.map(
-                        (id) =>
-                          `Sam · slot ${state.ownCircuits.findIndex((s) => s.id === id) + 1}`,
-                      )
-                  : undefined
-              }
-              onConfirm={connect}
-              onCancel={() => {
-                suppressClick.current = false;
-                setDeclaring(false);
-                setTarget("");
-                setSecondOwn("");
-              }}
-              fallbackFocus={headingRef}
-            />
-          )}
           {selectedTool &&
             (() => {
               const tool = state.tools?.find((t) => t.id === selectedTool);
@@ -1102,7 +1048,7 @@ export function CircuitBoard({
                   (m) => m.eligible && m.circuitIds.includes(ownSlot.id),
                 )
               }
-              onClick={() => setUtility("solo")}
+              onClick={() => { if (canAct && ownSlot) { adapter.resolveSolo(own); clearSelection(); } }}
             >
               Self-Connection
             </button>
@@ -1132,39 +1078,6 @@ export function CircuitBoard({
                 "Safe isolation is unavailable in this build."}
             </small>
           </div>
-          {utility === "solo" &&
-            ownSlot &&
-            (() => {
-              const eligibility = state.selfMatches?.find((m) =>
-                m.circuitIds.includes(ownSlot.id),
-              );
-              return (
-                <ConfirmationDialog
-                  title="Self-Connection"
-                  eyebrow="SAM’S CIRCUITS"
-                  description="Clear the remaining matching circuits held by Sam. All listed slots clear together."
-                  busy={busy || !canAct}
-                  confirmDisabled={!eligibility?.eligible}
-                  confirmLabel="Confirm"
-                  onCancel={() => setUtility(null)}
-                  fallbackFocus={headingRef}
-                  onConfirm={() => {
-                    adapter.resolveSolo(own);
-                    clearSelection();
-                  }}
-                >
-                  <p>{eligibility?.explanation}</p>
-                  <ul className="action-circuit-list">
-                    {eligibility?.circuitIds.map((id) => (
-                      <li key={id}>
-                        Sam · slot{" "}
-                        {state.ownCircuits.findIndex((s) => s.id === id) + 1}
-                      </li>
-                    ))}
-                  </ul>
-                </ConfirmationDialog>
-              );
-            })()}
           <details className="deduction-log">
             <summary>
               Deduction log · {state.history?.length ?? state.messages.length}{" "}
