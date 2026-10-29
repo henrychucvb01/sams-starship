@@ -12,9 +12,12 @@ export function AdventurePanels({ index }: { index?: number }) {
  const id = index === undefined ? 'all-adventure-panels' : `adventure-panel-${index}`;
  const indices = index === undefined ? [0, 1, 2, 3] : [index];
  return <svg className={index === undefined ? 'combined-panels' : 'individual-panel-art'} viewBox={index === undefined ? '0 0 1870 841' : bounds[index]} aria-hidden="true" focusable="false">
-  <defs>{indices.map(i => <clipPath key={i} id={`${id}-${i}`}><path d={shapes[i]}/></clipPath>)}</defs>
+  <defs><linearGradient id={`${id}-cover`} gradientUnits="userSpaceOnUse" x1="0" y1="455" x2="0" y2="767">
+   <stop offset="0" stopColor="#111636" stopOpacity="0"/><stop offset="0.3" stopColor="#111636" stopOpacity="0.83"/><stop offset="1" stopColor="#111636" stopOpacity="0.95"/>
+  </linearGradient>{indices.map(i => <g key={i}><clipPath id={`${id}-${i}`}><path d={shapes[i]}/></clipPath><mask id={`${id}-inside-${i}`} maskUnits="userSpaceOnUse" x="0" y="0" width="1870" height="841"><path d={shapes[i]} fill="white" stroke="black" strokeWidth="32"/></mask></g>)}</defs>
   {indices.map(i => <g key={i} className={`panel-light mode-light-${i}`}>
    <image href={panelsArt} width="1870" height="841" clipPath={`url(#${id}-${i})`}/>
+   <path d={shapes[i]} fill={`url(#${id}-cover)`} mask={`url(#${id}-inside-${i})`}/>
   </g>)}
  </svg>;
 }
