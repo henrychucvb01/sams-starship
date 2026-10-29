@@ -8,6 +8,7 @@ import {
 } from "react";
 export function ConfirmationDialog({
   title,
+  className = "",
   description,
   eyebrow,
   children,
@@ -20,6 +21,7 @@ export function ConfirmationDialog({
   fallbackFocus,
 }: {
   title: string;
+  className?: string;
   description: ReactNode;
   eyebrow: ReactNode;
   children?: ReactNode;
@@ -34,7 +36,8 @@ export function ConfirmationDialog({
   const dialog = useRef<HTMLDialogElement>(null),
     cancel = useRef<HTMLButtonElement>(null),
     connectButton = useRef<HTMLButtonElement>(null),
-    lock = useRef(false);
+    lock = useRef(false),
+    confirmPoint = useRef({x:0,y:0});
   const [submitting, setSubmitting] = useState(false),
     [error, setError] = useState("");
   const id = useId();
@@ -54,6 +57,13 @@ export function ConfirmationDialog({
     cancel.current?.focus();
     return () => {
       node.close();
+      // Ignore a trailing double-click after a confirmed modal unmounts, so it
+      // cannot activate a control that happens to be underneath the old button.
+      if (lock.current) {
+        const stopRepeat = (event: MouseEvent) => { if(event.detail > 1 && !(event.target as Element)?.closest("dialog[open]") && Math.abs(event.clientX-confirmPoint.current.x)<3 && Math.abs(event.clientY-confirmPoint.current.y)<3) {event.preventDefault();event.stopImmediatePropagation();} };
+        document.addEventListener("click",stopRepeat,true);
+        setTimeout(()=>document.removeEventListener("click",stopRepeat,true),400);
+      }
       document.body.style.overflow = priorOverflow;
       document.body.style.paddingRight = priorPadding;
       if (previous?.isConnected && !previous.matches(":disabled"))
@@ -76,7 +86,7 @@ export function ConfirmationDialog({
   return (
     <dialog
       ref={dialog}
-      className="connection-dialog"
+      className={`connection-dialog ${className}`}
       aria-labelledby={`${id}-title`}
       aria-describedby={`${id}-description`}
       aria-busy={disabled}
@@ -125,7 +135,7 @@ export function ConfirmationDialog({
             ref={connectButton}
             className="primary"
             disabled={disabled || confirmDisabled}
-            onClick={confirm}
+            onClick={e=>{confirmPoint.current={x:e.clientX,y:e.clientY};void confirm();}}
             aria-label={confirmAriaLabel}
           >
             {disabled ? "Processing…" : confirmLabel}

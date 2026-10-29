@@ -1,11 +1,14 @@
-import { useState, type RefObject } from "react";
+import { SetupPopup } from "./SetupPopup";
+import { useEffect, useState, type RefObject } from "react";
 import type { MissionView, MissionAdapter } from "../types/presentation";
 import { ConfirmationDialog } from "./ConfirmationDialog";
 export function StartingInformation({
   state,
   adapter,
   headingRef,
+  onLeave,
 }: {
+  onLeave?: () => void;
   state: MissionView;
   adapter: MissionAdapter;
   headingRef: RefObject<HTMLHeadingElement | null>;
@@ -13,15 +16,15 @@ export function StartingInformation({
   const [selected, setSelected] = useState("");
   const [confirming, setConfirming] = useState(false);
   const setup = state.crewFeatures?.startingInformation;
+  useEffect(()=>{if(setup?.pending){setSelected("");setConfirming(false);}},[setup?.pending]);
   if (!setup?.pending) return null;
   const selectedSlot = state.ownCircuits.find((s) => s.id === selected);
   return (
-    <section
+    <SetupPopup><section
       className="starting-information"
       aria-label="Starting information selection"
     >
       <span className="eyebrow">BEFORE WE CONNECT</span>
-      <h2>Choose your starting information</h2>
       <p>{setup.description}</p>
       <div className="starting-options">
         {setup.availableIds.map((id) => {
@@ -31,7 +34,7 @@ export function StartingInformation({
             <button
               key={id}
               aria-pressed={selected === id}
-              className={`starting-option ${selected === id ? "chosen" : ""}`}
+              className={`starting-option circuit-blue ${selected === id ? "chosen" : ""}`}
               onClick={() => setSelected(id)}
               aria-label={`Share starting number ${slot.value}, slot ${state.ownCircuits.indexOf(slot) + 1}`}
             >
@@ -53,8 +56,10 @@ export function StartingInformation({
       >
         Review starting information
       </button>
+      {onLeave && <button className="text-button setup-exit" onClick={onLeave}>Leave mission</button>}
       {confirming && selectedSlot && (
         <ConfirmationDialog
+          className="setup-review"
           title="Reveal starting information?"
           eyebrow="PUBLIC INFORMATION"
           description={`Reveal Sam’s number ${selectedSlot.value}, slot ${state.ownCircuits.indexOf(selectedSlot) + 1}, to the whole crew. This information remains public.`}
@@ -71,6 +76,6 @@ export function StartingInformation({
           }}
         />
       )}
-    </section>
+    </section></SetupPopup>
   );
 }

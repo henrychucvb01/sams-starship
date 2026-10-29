@@ -125,8 +125,11 @@ async function starting(seats: Seat[]) {
     await d.getByRole("button", { name: "Confirm", exact: true }).click();
     await expect(d).toHaveCount(0);
   }
-  for (const seat of seats)
+  for (const seat of seats) {
     await expect(seat.page.locator(".starting-information")).toHaveCount(0);
+    await expect.poll(() => seat.room()?.game?.phase).toBe("turns");
+    await expect(seat.page.locator(".mp-board .turn-pill")).not.toContainText("Choose starting information");
+  }
 }
 test("crew selection keeps solo separate and supports every crew size with keyboard", async ({
   page,
@@ -410,8 +413,7 @@ test("a real connection unlocks shared equipment; off-turn use and exhaustion st
           "1/2 crew markers placed",
         );
       await seat.page
-        .locator(".starting-information .mp-actions button")
-        .filter({ hasText: `Blue ${number} ·` })
+        .locator(`.starting-information .mp-actions button[aria-label^="Blue ${number} ·"]`)
         .first()
         .click();
       await seat.page
@@ -422,8 +424,11 @@ test("a real connection unlocks shared equipment; off-turn use and exhaustion st
         .getByRole("button", { name: "Confirm", exact: true })
         .click();
     }
-    for (const seat of seats)
+    for (const seat of seats) {
       await expect(seat.page.locator(".starting-information")).toHaveCount(0);
+      await expect.poll(() => seat.room()?.game?.phase).toBe("turns");
+      await expect(seat.page.locator(".mp-board .turn-pill")).not.toContainText("Choose starting information");
+    }
     const active = seats.find(
         (s) => s.playerId === seats[0].room()!.game!.currentParticipant,
       )!,
@@ -715,4 +720,26 @@ test("leaving stops polling; forgetting a reserved seat allows a different crew"
   } finally {
     await Promise.all(seats.map((s) => s.context.close()));
   }
+});
+
+test('required setup retains pending retry inside the popup without revealing before acceptance',async({browser,baseURL},info)=>{
+ test.skip(!enabled,'Requires configured local room service.');test.setTimeout(60000);
+ const seats=await roomWithCrew(browser,2,baseURL!,info.project.name);
+ try {
+  const host=seats[0],p=host.page;let failed=false;
+  await p.route('**/api/rooms/*/commands',async route=>{
+   const body=route.request().postDataJSON();
+   if(!failed&&body.command?.type==='startingInformation'){failed=true;await route.abort();}else await route.continue();
+  });
+  await p.locator('.starting-information .mp-actions button').first().click();
+  const review=p.getByRole('dialog',{name:'Reveal starting information',exact:true});
+  await review.getByRole('button',{name:'Confirm',exact:true}).click();
+  await expect(review.getByRole('alert')).toBeVisible();
+  expect(host.room()!.game!.startingInformation).toHaveLength(0);
+  await review.getByRole('button',{name:'Cancel',exact:true}).click();
+  const setup=p.getByRole('dialog',{name:'Choose your starting information',exact:true});await expect(setup).toBeVisible();
+  await setup.getByRole('button',{name:'Retry pending action',exact:true}).click();
+  await expect(setup).toHaveCount(0);await expect.poll(()=>host.room()!.game!.startingInformation.length).toBe(1);
+  expect(host.room()!.game!.phase).toBe('startingInformation');
+ } finally {for(const seat of seats)await seat.context.close();}
 });

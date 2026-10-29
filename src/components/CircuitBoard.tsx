@@ -1,3 +1,4 @@
+import { CrewReactionContext, StatusShip } from "./TerminalArt";
 import {
   useEffect,
   useLayoutEffect,
@@ -23,7 +24,7 @@ import { ConfirmationDialog } from "./ConfirmationDialog";
 import { icons, descriptions } from "./Toolkit";
 import { Toolkit } from "./Toolkit";
 import { CrewPortrait } from "../multiplayer/CrewSelection";
-import { Sam, Ship } from "./Ship";
+import { Sam } from "./Ship";
 const clock = (s: number) =>
   `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 type Effect = NonNullable<MissionView["effects"]>[number];
@@ -531,8 +532,8 @@ export function CircuitBoard({
     );
   }
   return (
-    <section
-      className={`deduction-screen effect-${effect?.kind ?? "idle"} ${effect?.kind === "damage" || effect?.kind === "critical" ? "screen-impact" : ""}`}
+    <CrewReactionContext.Provider value={{effect, captain:state.crewFeatures?.captainId, status:state.status}}><section
+      className={`game-terminal deduction-screen effect-${effect?.kind ?? "idle"} ${effect?.kind === "damage" || effect?.kind === "critical" ? "screen-impact" : ""}`}
     >
       <div className="board-heading">
         <div>
@@ -541,10 +542,10 @@ export function CircuitBoard({
             NUMBERS
           </span>
           <h1 ref={headingRef} tabIndex={-1}>
-            One crew. Every connection counts.
+            Emergency Repair Terminal
           </h1>
         </div>
-        <button className="secondary compact" onClick={onLeave}>
+        <button hidden={state.crewFeatures?.startingInformation?.pending} className="secondary compact" onClick={onLeave}>
           Leave mission
         </button>
       </div>
@@ -553,38 +554,11 @@ export function CircuitBoard({
           {state.board.note}
         </p>
       )}
-      <div className="mission-ribbon" aria-label="Mission status">
-        <span>
-          Hull <strong>{state.hull}%</strong>
-        </span>
-        <span>
-          Clock <strong>{clock(state.secondsRemaining)}</strong>
-        </span>
-        <span>
-          Restored{" "}
-          <strong>
-            {state.restored} / {state.required}
-          </strong>
-        </span>
-        <span>
-          Remaining{" "}
-          <strong>
-            {state.remainingCircuits ?? (state.required - state.restored) * 2}
-          </strong>
-        </span>
-        <span>
-          Energy <strong>ϟ {state.energy}</strong>
-        </span>
-        <progress
-          value={state.restored}
-          max={state.required}
-          aria-label="Restoration progress"
-        />
-      </div>
       <div className="deduction-layout">
         <div className="board-main">
           <NumberTracker tracker={state.tracker} />
           <StartingInformation
+            onLeave={onLeave}
             state={state}
             adapter={adapter}
             headingRef={headingRef}
@@ -645,6 +619,91 @@ export function CircuitBoard({
                 {turnText}
               </span>
             </div>
+        <aside className="board-companion" style={{gridRow:`2 / span ${Math.max(1,state.rooms.length)}`}}>      <div className="mission-ribbon" aria-label="Mission status">
+        <span>
+          Hull <strong>{state.hull}%</strong>
+        </span>
+        <span>
+          Clock <strong>{clock(state.secondsRemaining)}</strong>
+        </span>
+        <span>
+          Restored{" "}
+          <strong>
+            {state.restored} / {state.required}
+          </strong>
+        </span>
+        <span>
+          Remaining{" "}
+          <strong>
+            {state.remainingCircuits ?? (state.required - state.restored) * 2}
+          </strong>
+        </span>
+        <span>
+          Energy <strong>ϟ {state.energy}</strong>
+        </span>
+        <progress
+          value={state.restored}
+          max={state.required}
+          aria-label="Restoration progress"
+        />
+      </div>
+
+          <div
+            className={`attack-scene hull-${hullStage} ${effect?.kind === "damage" ? "under-attack" : effect?.kind === "critical" ? "critical-failure" : ""} ${effect?.kind === "success" ? "system-restoring" : ""}`}
+            data-effect={effect?.id}
+            aria-label={`Spaceship condition: ${hullStage}`}
+          >
+            <span className="panel-kicker">SS BUTTER · SHARED SHIP</span>
+            {(state.shieldActive ||
+              effect?.kind === "shield" ||
+              effect?.kind === "blocked") && (
+              <div
+                className={`energy-shield ${effect?.kind === "blocked" ? "shield-impact" : ""}`}
+                aria-label={
+                  effect?.kind === "blocked"
+                    ? "Shield absorbed the attack"
+                    : "Emergency Shield active"
+                }
+              />
+            )}
+            {effect?.kind === "blocked" && (
+              <div
+                className="blocked-projectile"
+                key={effect.id}
+                aria-hidden="true"
+              />
+            )}
+            <StatusShip condition={hullStage} />
+            {effect?.kind === "damage" && (
+              <div className="attack-vfx" key={effect.id} aria-hidden="true">
+                <span className="projectile" />
+                <span className="impact-flash" />
+                <span className="spark spark-a" />
+                <span className="spark spark-b" />
+                <span className="spark spark-c" />
+              </div>
+            )}
+            {effect?.kind === "critical" && (
+              <div className="critical-flash" role="status">
+                ⚠ RED CIRCUIT · CRITICAL FAILURE
+              </div>
+            )}
+            <span className="ship-smoke" aria-hidden="true">
+              ∿ ∿ ∿
+            </span>
+            <p className="damage-caption">
+              {hullStage === "normal"
+                ? "Ship stable"
+                : hullStage === "minor"
+                  ? "Minor damage · electrical sparks"
+                  : hullStage === "heavy"
+                    ? "Heavy damage · smoke detected"
+                    : hullStage === "critical"
+                      ? "Critical hull · electrical failure"
+                      : "Hull lost · emergency shutdown"}
+            </p>
+          </div>
+        </aside>
             {state.rooms.map((room) => (
               <section
                 className={`rack rack-${room.id} ${turn === room.id ? "active-rack" : ""} ${effect?.participant === room.id ? "crew-acted" : ""}`}
@@ -700,6 +759,7 @@ export function CircuitBoard({
             </div>
             <section
               className={`rack rack-sam ${turn === "sam" ? "active-rack" : ""}`}
+              style={{gridRow:state.rooms.length+2}}
               aria-label="Sam circuit rack"
             >
               <CharacterCard
@@ -764,6 +824,41 @@ export function CircuitBoard({
               </div>
             )}
           </div>
+          <div className="preserved-tools">          <Toolkit
+            tools={state.tools}
+            selected={selectedTool}
+            onSelect={selectTool}
+            canAct={canAct && !effect}
+          />
+          <section className="mini-terminal">
+            <div className="section-heading">
+              <span className="eyebrow">EMERGENCY COMMS</span>
+              <span className="energy-tag">ϟ {state.energy}</span>
+            </div>
+            <div
+              className="mini-messages"
+              role="log"
+              aria-label="Crew transmissions"
+            >
+              {state.messages.map((m) => (
+                <p key={m.id}>{m.text}</p>
+              ))}
+            </div>
+            <button
+              className="text-button transmit"
+              disabled={
+                !ownSlot || !canAct || state.energy <= 0 || ownSlot?.shared
+              }
+              onClick={() => adapter.shareCircuit(own)}
+            >
+              Share selected Sam circuit · 1 energy
+            </button>
+            <small>
+              Share a selected Sam number for one energy and a turn. Use Sam’s
+              Toolkit for limited deduction help.
+            </small>
+          </section>
+</div>
           <div className="board-instruction" role="status">
             {dragNotice || state.event.text}
           </div>
@@ -901,7 +996,8 @@ export function CircuitBoard({
                           ? "Choose two crew circuits"
                           : "Choose a crew circuit"}
                       </legend>
-                      {state.rooms.map((room) => (
+
+            {state.rooms.map((room) => (
                         <label key={room.id}>
                           {room.name}
                           <select
@@ -1081,98 +1177,8 @@ export function CircuitBoard({
             </div>
           </details>
         </div>
-        <aside className="board-companion">
-          <div
-            className={`attack-scene hull-${hullStage} ${effect?.kind === "damage" ? "under-attack" : effect?.kind === "critical" ? "critical-failure" : ""} ${effect?.kind === "success" ? "system-restoring" : ""}`}
-            data-effect={effect?.id}
-            aria-label={`Spaceship condition: ${hullStage}`}
-          >
-            <span className="panel-kicker">SS BUTTER · SHARED SHIP</span>
-            {(state.shieldActive ||
-              effect?.kind === "shield" ||
-              effect?.kind === "blocked") && (
-              <div
-                className={`energy-shield ${effect?.kind === "blocked" ? "shield-impact" : ""}`}
-                aria-label={
-                  effect?.kind === "blocked"
-                    ? "Shield absorbed the attack"
-                    : "Emergency Shield active"
-                }
-              />
-            )}
-            {effect?.kind === "blocked" && (
-              <div
-                className="blocked-projectile"
-                key={effect.id}
-                aria-hidden="true"
-              />
-            )}
-            <Ship restored={state.restored} damaged={state.hull <= 75} />
-            {effect?.kind === "damage" && (
-              <div className="attack-vfx" key={effect.id} aria-hidden="true">
-                <span className="projectile" />
-                <span className="impact-flash" />
-                <span className="spark spark-a" />
-                <span className="spark spark-b" />
-                <span className="spark spark-c" />
-              </div>
-            )}
-            {effect?.kind === "critical" && (
-              <div className="critical-flash" role="status">
-                ⚠ RED CIRCUIT · CRITICAL FAILURE
-              </div>
-            )}
-            <span className="ship-smoke" aria-hidden="true">
-              ∿ ∿ ∿
-            </span>
-            <p className="damage-caption">
-              {hullStage === "normal"
-                ? "Ship stable"
-                : hullStage === "minor"
-                  ? "Minor damage · electrical sparks"
-                  : hullStage === "heavy"
-                    ? "Heavy damage · smoke detected"
-                    : hullStage === "critical"
-                      ? "Critical hull · electrical failure"
-                      : "Hull lost · emergency shutdown"}
-            </p>
-          </div>
-          <Toolkit
-            tools={state.tools}
-            selected={selectedTool}
-            onSelect={selectTool}
-            canAct={canAct && !effect}
-          />
-          <section className="mini-terminal">
-            <div className="section-heading">
-              <span className="eyebrow">EMERGENCY COMMS</span>
-              <span className="energy-tag">ϟ {state.energy}</span>
-            </div>
-            <div
-              className="mini-messages"
-              role="log"
-              aria-label="Crew transmissions"
-            >
-              {state.messages.map((m) => (
-                <p key={m.id}>{m.text}</p>
-              ))}
-            </div>
-            <button
-              className="text-button transmit"
-              disabled={
-                !ownSlot || !canAct || state.energy <= 0 || ownSlot?.shared
-              }
-              onClick={() => adapter.shareCircuit(own)}
-            >
-              Share selected Sam circuit · 1 energy
-            </button>
-            <small>
-              Share a selected Sam number for one energy and a turn. Use Sam’s
-              Toolkit for limited deduction help.
-            </small>
-          </section>
-        </aside>
+
       </div>
-    </section>
+    </section></CrewReactionContext.Provider>
   );
 }

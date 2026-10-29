@@ -18,7 +18,7 @@ async function launch(page: Page, path = "/") {
   await finishSetup(page);
   await waitHuman(page);
   await expect(
-    page.getByRole("heading", { name: "One crew. Every connection counts." }),
+    page.getByRole("heading", { name: "Emergency Repair Terminal" }),
   ).toBeVisible();
   await finishSetup(page);
   await waitHuman(page);
@@ -544,11 +544,18 @@ test("drag to crew with mobile edge scrolling opens confirmation and cancellatio
       touchPoints: [],
     });
   } else {
-    const b = (await target.boundingBox())!;
     await page.mouse.move(a.x + a.width / 2, a.y + 8);
     await page.mouse.down();
-    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 10 });
-    await page.clock.runFor(20);
+    await page.mouse.move(a.x + a.width / 2, 10, {steps:5});
+    for(let i=0;i<50;i++){
+      const r=(await target.boundingBox())!;
+      if(r.y>=65 && r.y+r.height<1400)break;
+      await page.clock.runFor(100);
+    }
+    const b=(await target.boundingBox())!;
+    expect(b.y).toBeGreaterThanOrEqual(0);
+    await page.mouse.move(b.x+b.width/2,b.y+b.height/2,{steps:10});
+    await page.clock.runFor(40);
     await page.mouse.up();
   }
   await expect(

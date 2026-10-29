@@ -46,15 +46,48 @@ export function RoomScreen({
     blocked = s.busy || s.pending || !online;
   const players = room?.players.filter((p) => !p.left) ?? [];
   const self = room?.players.find((p) => p.id === room.playerId);
+  const setupPending = !!room?.game && room.game.phase === "startingInformation" && room.game.startingInformationChoices.length > 0;
+  const connectionControls = <>      {s.error && (
+        <p className="mp-error" role="alert">
+          {s.error}
+        </p>
+      )}
+      {s.connection === "offline" && (
+        <button
+          className="secondary compact"
+          onClick={() => void client.refresh()}
+        >
+          Reconnect now
+        </button>
+      )}
+      {s.connection === "expired" && (
+        <button className="secondary" onClick={client.forget}>
+          Return to room entry
+        </button>
+      )}
+      {s.pending && (
+        <div className="mp-error" role="status">
+          An action is awaiting confirmation from the ship.{" "}
+          <button
+            className="secondary compact"
+            disabled={s.busy}
+            onClick={() => void client.retry().catch(() => {})}
+          >
+            Retry pending action
+          </button>
+        </div>
+      )}
+</>;
   return (
     <section className="mp-page page">
       <button
+        hidden={setupPending}
         className="text-button back"
         onClick={() => (room ? setLeaving(true) : onBack())}
       >
         ← {room ? "Leave room" : "Back to crew selection"}
       </button>
-      {room && (
+      {room && !setupPending && (
         <button className="text-button" onClick={() => setForgetting(true)}>
           Join a different crew
         </button>
@@ -157,36 +190,7 @@ export function RoomScreen({
           )}
         </>
       )}
-      {s.error && (
-        <p className="mp-error" role="alert">
-          {s.error}
-        </p>
-      )}
-      {s.connection === "offline" && (
-        <button
-          className="secondary compact"
-          onClick={() => void client.refresh()}
-        >
-          Reconnect now
-        </button>
-      )}
-      {s.connection === "expired" && (
-        <button className="secondary" onClick={client.forget}>
-          Return to room entry
-        </button>
-      )}
-      {s.pending && (
-        <div className="mp-error" role="status">
-          An action is awaiting confirmation from the ship.{" "}
-          <button
-            className="secondary compact"
-            disabled={s.busy}
-            onClick={() => void client.retry().catch(() => {})}
-          >
-            Retry pending action
-          </button>
-        </div>
-      )}
+      {!setupPending && connectionControls}
       {room?.status === "lobby" && (
         <>
           <h1 ref={headingRef} tabIndex={-1}>
@@ -271,6 +275,9 @@ export function RoomScreen({
       )}
       {room?.game && (
         <MultiplayerBoard
+          setupNotice={connectionControls}
+          onLeaveSetup={() => setLeaving(true)}
+          onForgetSetup={() => setForgetting(true)}
           room={room}
           blocked={blocked}
           command={client.command}

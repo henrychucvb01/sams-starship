@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { CrewReactionContext, StatusShip } from "../components/TerminalArt";
+import { SetupPopup } from "../components/SetupPopup";
+import { useEffect, useRef, useState, type RefObject, type ReactNode } from "react";
 import type { RoomView, RoomCommand } from "./protocol";
 import { useCircuitDrag } from "./useCircuitDrag";
 import { projectRoom } from "./projectRoom";
@@ -8,7 +10,6 @@ import { CharacterCard, EquipmentCards } from "../components/CrewCards";
 import { CrewActionDialog } from "../components/CrewActionDialog";
 import { ConfirmationDialog } from "../components/ConfirmationDialog";
 import { ConnectionOverlay } from "../components/ConnectionOverlay";
-import { Ship } from "../components/Ship";
 import { useEffects } from "../components/CircuitBoard";
 import type { CrewActionView } from "../types/crewPresentation";
 type Review =
@@ -22,8 +23,14 @@ export function MultiplayerBoard({
   blocked,
   command,
   headingRef,
+  onLeaveSetup,
+  setupNotice,
+  onForgetSetup,
 }: {
   room: RoomView;
+  setupNotice?: ReactNode;
+  onLeaveSetup?: () => void;
+  onForgetSetup?: () => void;
   blocked: boolean;
   command: (c: RoomCommand) => Promise<void>;
   headingRef: RefObject<HTMLHeadingElement | null>;
@@ -137,17 +144,102 @@ export function MultiplayerBoard({
             ? "minor"
             : "normal";
   return (
-    <div
-      className={`mp-board ${effect?.kind === "damage" || effect?.kind === "critical" ? "screen-impact" : ""}`}
+    <CrewReactionContext.Provider value={{effect,captain:g.captain,status:g.status}}><div
+      className={`game-terminal mp-board ${effect?.kind === "damage" || effect?.kind === "critical" ? "screen-impact" : ""}`}
     >
       <h1 ref={headingRef} tabIndex={-1}>
-        {g.mission.name}
+        Emergency Repair Terminal
       </h1>
-      <div className="mission-ribbon">
+      {g.status !== "playing" && (
+        <section className="mp-result" role="status">
+          <h2>{g.status === "won" ? "Mission Complete" : "Mission Failed"}</h2>
+          <p>{g.history.at(-1)?.message}</p>
+          {room.hostId === me && (
+            <button
+              className="primary"
+              disabled={blocked}
+              onClick={() => setReview({ kind: "restart" })}
+            >
+              Play again
+            </button>
+          )}
+        </section>
+      )}
+      {g.phase === "startingInformation" && g.status === "playing" && g.startingInformationChoices.length > 0 && (
+        <SetupPopup>
+        <section className="starting-information">
+          <p>
+            Make one of your blue circuits public. The Captain takes the first
+            turn when everyone has chosen.
+          </p>
+          <div className="mp-actions">
+            {g.startingInformationChoices.map((id) => {
+              const c = g.circuits.find((c) => c.id === id)!;
+              return (
+                <button
+                  key={id}
+                  aria-label={`Blue ${c.value} · rack ${(c.rack ?? 0)+1}, slot ${c.position+1}`}
+                  className="starting-option circuit-blue"
+                  disabled={blocked}
+                  onClick={() => setReview({ kind: "setup", id })}
+                >
+                  <strong>{c.value}</strong><small>Rack {(c.rack ?? 0) + 1} · Slot {c.position + 1}</small>
+                </button>
+              );
+            })}
+          </div>
+          {!g.startingInformationChoices.length && (
+            <p role="status">
+              Your information is public. Waiting for your crewmates…
+            </p>
+          )}
+          <p>
+            {g.startingInformation.length}/{room.playerCount} crew markers
+            placed
+          </p>
+          {setupNotice}
+          <div className="setup-exit-actions">
+            {onLeaveSetup && <button className="text-button" onClick={onLeaveSetup}>Leave room</button>}
+            {onForgetSetup && <button className="text-button" onClick={onForgetSetup}>Join a different crew</button>}
+          </div>
+        </section></SetupPopup>
+      )}
+      {g.phase === "startingInformation" && !g.startingInformationChoices.length && <p role="status">Your information is public. Waiting for your crewmates… {g.startingInformation.length}/{room.playerCount} crew markers placed</p>}
+      <div className="deduction-layout">
+        <div className="board-main">
+          <NumberTracker tracker={tracker} />          <EquipmentCards
+            equipment={crew.equipment}
+            onAction={openAction}
+            canAct={!blocked && g.status === "playing" && g.phase === "turns"}
+          />
+
+          <p className="drag-instructions">
+            Tap two circuits, or drag from your grip ⠿ to a target. Review and
+            confirm every connection.
+          </p>
+          <div className="board-table" ref={drag.board}>
+            {drag.path && (
+              <svg className="drag-wire" aria-hidden="true">
+                <path d={drag.path} />
+              </svg>
+            )}
+            <ConnectionOverlay
+              scene={
+                effect
+                  ? {
+                      phase: "result",
+                      outcome: effect.kind,
+                      eventId: effect.id,
+                      circuitIds: effect.slotIds,
+                    }
+                  : null
+              }
+            />
+        <aside className="board-companion" style={{gridRow:`1 / span ${Math.max(1,g.participants.length-1)}`}}>      <div className="mission-ribbon">
         <span>
           Hull{" "}
           <strong>
-            {g.hull}/{g.maxHull}
+            {Math.round(g.hull/g.maxHull*100)}%
           </strong>
         </span>
         <span>
@@ -172,80 +264,32 @@ export function MultiplayerBoard({
             : `${name(g.currentParticipant)}’s turn${turn ? " · Your turn" : ""}`}
         </span>
       </div>
-      {g.status !== "playing" && (
-        <section className="mp-result" role="status">
-          <h2>{g.status === "won" ? "Mission Complete" : "Mission Failed"}</h2>
-          <p>{g.history.at(-1)?.message}</p>
-          {room.hostId === me && (
-            <button
-              className="primary"
-              disabled={blocked}
-              onClick={() => setReview({ kind: "restart" })}
-            >
-              Play again
-            </button>
-          )}
-        </section>
-      )}
-      {g.phase === "startingInformation" && g.status === "playing" && (
-        <section className="starting-information">
-          <h2>Choose your starting information</h2>
-          <p>
-            Make one of your blue circuits public. The Captain takes the first
-            turn when everyone has chosen.
-          </p>
-          <div className="mp-actions">
-            {g.startingInformationChoices.map((id) => {
-              const c = g.circuits.find((c) => c.id === id)!;
-              return (
-                <button
-                  key={id}
-                  className="secondary compact"
-                  disabled={blocked}
-                  onClick={() => setReview({ kind: "setup", id })}
-                >
-                  Blue {c.value} · rack {(c.rack ?? 0) + 1}, slot{" "}
-                  {c.position + 1}
-                </button>
-              );
-            })}
-          </div>
-          {!g.startingInformationChoices.length && (
-            <p role="status">
-              Your information is public. Waiting for your crewmates…
-            </p>
-          )}
-          <p>
-            {g.startingInformation.length}/{room.playerCount} crew markers
-            placed
-          </p>
-        </section>
-      )}
-      <div className="deduction-layout">
-        <div className="board-main">
-          <NumberTracker tracker={tracker} />
-          <p className="drag-instructions">
-            Tap two circuits, or drag from your grip ⠿ to a target. Review and
-            confirm every connection.
-          </p>
-          <div className="board-table" ref={drag.board}>
-            {drag.path && (
-              <svg className="drag-wire" aria-hidden="true">
-                <path d={drag.path} />
-              </svg>
+<p>Remaining circuits: {g.remainingCircuits}</p>
+          <div
+            className={`attack-scene hull-${stage} ${effect?.kind === "damage" ? "under-attack" : effect?.kind === "critical" ? "critical-failure" : ""} ${effect?.kind === "success" ? "system-restoring" : ""}`}
+          >
+            <span className="panel-kicker">ONE CREW · ONE SHARED SHIP</span>
+            {g.shieldActive && (
+              <div className="energy-shield" aria-label="Shield active" />
             )}
-            <ConnectionOverlay
-              scene={
-                effect
-                  ? {
-                      phase: "result",
-                      outcome: effect.kind,
-                      eventId: effect.id,
-                      circuitIds: effect.slotIds,
-                    }
-                  : null
-              }
-            />
+            <StatusShip condition={stage} />
+            {effect?.kind === "damage" && (
+              <div className="attack-vfx">
+                <span className="projectile" />
+                <span className="impact-flash" />
+                <span className="spark spark-a" />
+              </div>
+            )}
+            {effect?.kind === "critical" && (
+              <div className="critical-flash" role="status">
+                ⚠ CATASTROPHIC OVERLOAD
+              </div>
+            )}
+            <p className="damage-caption">
+              {g.status === "lost" ? "Mission failed" : `Ship ${stage}`}
+            </p>
+          </div>
+        </aside>
             {[
               ...g.participants.filter((p) => p.id !== me),
               ...g.participants.filter((p) => p.id === me),
@@ -258,6 +302,7 @@ export function MultiplayerBoard({
               const presence = room.players.find((x) => x.id === p.id);
               return (
                 <section
+                  style={p.id === me ? {gridRow:g.participants.length} : undefined}
                   className={`rack ${p.id === me ? "rack-self" : ""} ${g.currentParticipant === p.id ? "active-rack" : ""}`}
                   key={p.id}
                   aria-label={`${name(p.id)} circuit racks`}
@@ -444,37 +489,7 @@ export function MultiplayerBoard({
             </div>
           </details>
         </div>
-        <aside className="board-companion">
-          <div
-            className={`attack-scene hull-${stage} ${effect?.kind === "damage" ? "under-attack" : effect?.kind === "critical" ? "critical-failure" : ""} ${effect?.kind === "success" ? "system-restoring" : ""}`}
-          >
-            <span className="panel-kicker">ONE CREW · ONE SHARED SHIP</span>
-            {g.shieldActive && (
-              <div className="energy-shield" aria-label="Shield active" />
-            )}
-            <Ship restored={g.restored} damaged={g.hull < g.maxHull} />
-            {effect?.kind === "damage" && (
-              <div className="attack-vfx">
-                <span className="projectile" />
-                <span className="impact-flash" />
-                <span className="spark spark-a" />
-              </div>
-            )}
-            {effect?.kind === "critical" && (
-              <div className="critical-flash" role="status">
-                ⚠ CATASTROPHIC OVERLOAD
-              </div>
-            )}
-            <p className="damage-caption">
-              {g.status === "lost" ? "Mission failed" : `Ship ${stage}`}
-            </p>
-          </div>
-          <EquipmentCards
-            equipment={crew.equipment}
-            onAction={openAction}
-            canAct={!blocked && g.status === "playing" && g.phase === "turns"}
-          />
-        </aside>
+
       </div>
       {action && (
         <CrewActionDialog
@@ -498,6 +513,7 @@ export function MultiplayerBoard({
       )}
       {review && (
         <ConfirmationDialog
+          className={review.kind === "setup" ? "setup-review" : ""}
           title={
             review.kind === "setup"
               ? "Reveal starting information"
@@ -559,6 +575,6 @@ export function MultiplayerBoard({
           }}
         />
       )}
-    </div>
+    </div></CrewReactionContext.Provider>
   );
 }

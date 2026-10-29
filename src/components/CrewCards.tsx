@@ -1,3 +1,4 @@
+import { CrewCommunication, CaptainArt } from "./TerminalArt";
 import type { ReactNode } from "react";
 import type {
   CrewActionView,
@@ -47,7 +48,7 @@ export function CaptainBadge() {
     <InfoPopover
       label="Captain — Leads the crew and takes the first turn."
       className="captain-badge"
-      icon={<CommandEmblem />}
+      icon={<CaptainArt />}
     >
       <strong>Captain</strong>
       <p>Leads the crew and takes the first turn.</p>
@@ -94,7 +95,7 @@ export function CharacterCard({
   const isSelf = self ?? crew.id === "sam";
   return (
     <div className="rack-label character-card">
-      {portrait}
+      <CrewCommunication portrait={portrait} id={crew.id} name={crew.name}/>
       <div className="character-name">
         <h2>
           {crew.name} {captain && <CaptainBadge />}
