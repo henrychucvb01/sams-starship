@@ -3,7 +3,12 @@ import { createRoot } from "react-dom/client";
 import { App } from "../../src/screens/App";
 import type { MissionAdapter, MissionView } from "../../src/types/presentation";
 import "../../src/styles/theme.css";
+const trackerPreview = new URLSearchParams(location.search).has("tracker");
 const initial = (): MissionView => ({
+  ...(trackerPreview ? {tracker:{
+    numbers:Array.from({length:12},(_,i)=>({number:i+1,resolved:0,total:4,complete:false})),
+    specials:[{type:"yellow" as const,positionLabel:"2A",positions:[{sortValue:2.5,certainty:"confirmed" as const}],resolved:0,total:2,complete:false},{type:"red" as const,positionLabel:"4",positions:[{sortValue:4.5,certainty:"possible" as const}],resolved:0,total:1,complete:false}],
+  }} : {}),
   status: "playing",
   hull: 100,
   secondsRemaining: 300,
@@ -126,6 +131,9 @@ createRoot(document.getElementById("root")!).render(
         {[100,90,80,79,75,60,59,50,40,39,25,20,19,10,1,0].map(n=><option key={n} value={n}>{n}%</option>)}
       </select></label>
       <button onClick={()=>publish({...state})}>Rerender unchanged hull</button>
+      {trackerPreview && <label>Tracker progress <select aria-label="Tracker progress" defaultValue={0} onChange={e=>{const resolved=Number(e.target.value);publish({...state,tracker:{...state.tracker!,numbers:state.tracker!.numbers.map(n=>n.number===3?{...n,resolved,complete:resolved===4}:n)}});}}>
+        {[0,1,2,3,4].map(n=><option key={n} value={n}>{n} restored</option>)}
+      </select></label>}
       {(["nova", "sam", "damage", "success"] as const).map((k) => (
         <button key={k} onClick={() => scenario(k)}>
           Fixture {k}

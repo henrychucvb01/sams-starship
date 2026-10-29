@@ -24,3 +24,17 @@ Numbers, questions, slot labels, selection, progress pips, messages, status valu
 - Both registered images use the identical crop **(90,0,1650,910)** and proportional resize to **960×560**, WebP quality 88, method 6. Combined image payload: **218,466 bytes**. The originals' orientation, colors, stars, engine glow and smoke are retained; no replacement art is generated.
 - `ShipDamageMonitor.tsx` uses a healthy base plus five copies of the same cached damaged asset, each with a fixed soft elliptical CSS mask. Cockpit, upper engine, central hull, lower engine and rear systems activate progressively at presentation thresholds 100/80/60/40/20. Only zone opacity transitions; the entire damaged image is shown at zero hull or authoritative defeat. The displayed percentage and bar still show the actual supplied hull even for a catastrophic defeat that leaves numeric hull above zero.
 - Zone positions and strengths derive only from supplied hull/maxHull and terminal status, never randomness or local elapsed time. CSS handles damage/repair glows and reduced motion. No engine, server, rule, database or network-command changes are involved.
+
+## Owner-supplied circuit tracker artwork
+
+The October 29 uploads are used directly, without generating replacements:
+
+| Export | Owner attachment | Crop in original pixels | Export size |
+| --- | --- | --- | --- |
+| `tracker-blue.webp` | Glossy Cyan Sci-Fi Console Panel(1).png | (90,145,1040,1210) | 320×359 |
+| `tracker-green.webp` | Neon Green Completion Badge(1).png | (145,110,1010,1185) | 320×398 |
+| `tracker-yellow.webp` | Glowing yellowSci-Fi Module.png | (125,55,1120,1130) | 320×346 |
+| `tracker-red.webp` | Glossy red Sci-Fi Module.png | (235,130,1055,1025) | 320×349 |
+| `tracker-border.webp` | Futuristic Neon Sci-Fi HUD Banner(1).png | alpha > 8 bounds (28,67,2021,609) | 1440×392 |
+
+WebP quality 90, method 6. Module aspect ratios are retained. The HUD uses a sliced border so its illustrated corners stay intact. Blue and green are the main number-tracker states; yellow and red are the existing public special-position badges. The source's four gold connector lights are not treated as always-lit decoration: an aligned darkened copy covers the original lamp bank, then each of the four original lamp windows is independently restored to full brightness according to `tracker.numbers[].resolved`. Numbers and counts remain HTML; completion comes from the engine's `complete` flag. No connection counters, matching rules or private information are inferred or changed.

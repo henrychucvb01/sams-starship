@@ -1,4 +1,6 @@
 import type { MissionView } from "../types/presentation";
+import { TrackerCartridge, trackerArtwork } from "./TrackerCartridge";
+import "../styles/tracker-art.css";
 import { CircuitBadgeIcon } from "./CircuitBadge";
 /** Engine public positions only. These badges never assign identities to hidden slots. */
 export function NumberTracker({
@@ -8,7 +10,7 @@ export function NumberTracker({
 }) {
   if (!tracker) return null;
   return (
-    <section className="number-tracker" aria-label="Circuit number tracker">
+    <section className="number-tracker illustrated-tracker" aria-label="Circuit number tracker">
       <div className="tracker-heading">
         <span className="eyebrow">CIRCUIT TRACKER</span>
         <span>RESTORED CIRCUITS</span>
@@ -40,15 +42,7 @@ export function NumberTracker({
               className={`number-marker ${n.complete ? "number-complete" : ""}`}
               aria-label={`Number ${n.number}: ${n.resolved} of ${n.total} resolved${n.complete ? ", completed" : ""}`}
             >
-              <strong>
-                {n.number}
-                <span>{n.complete ? "✓" : ""}</span>
-              </strong>
-              <div className="copy-pips" aria-hidden="true">
-                {Array.from({ length: n.total }, (_, i) => (
-                  <i key={i} className={i < n.resolved ? "pip-cleared" : ""} />
-                ))}
-              </div>
+              <TrackerCartridge number={n.number} resolved={n.resolved} total={n.total} complete={n.complete}/>
               <small>
                 {n.resolved}/{n.total}
               </small>
@@ -65,6 +59,7 @@ export function NumberTracker({
                     data-certainty={b.certainty}
                     data-label={b.label}
                   >
+                    <img className="tracker-special-art" src={trackerArtwork[b.type]} alt=""/>
                     <CircuitBadgeIcon kind={b.type} />
                   </span>
                 );

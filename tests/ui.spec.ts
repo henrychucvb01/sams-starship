@@ -49,7 +49,7 @@ async function solve(page: Page) {
         (await tile.getAttribute("aria-label")) ?? "",
       );
       if (partial)
-        await expect(tile).toHaveCSS("background-color", "rgb(32, 44, 67)");
+        await expect(tile.locator(".tracker-body-art")).toHaveAttribute("src", /tracker-blue/);
     }
     // Test driver reasons ONLY from rendered public board. No private board or seed lookup.
     const circuits = (await page.locator(".rack").evaluateAll((rows) =>
@@ -490,10 +490,7 @@ test("number tracker shows four-copy completion from actual Self-Match", async (
   await expect(
     page.getByLabel("Number 2: 4 of 4 resolved, completed", { exact: true }),
   ).toHaveClass(/number-complete/);
-  await expect(page.locator(".number-complete")).toHaveCSS(
-    "background-color",
-    "rgb(34, 197, 94)",
-  );
+  await expect(page.locator(".number-complete .tracker-body-art")).toHaveAttribute("src", /tracker-green/);
   await expect(page.locator(".number-complete small")).toHaveText("4/4");
   await expect(page.locator(".number-marker")).toHaveCount(12);
   await expect(page.locator(".special-marker")).toHaveCount(0);
@@ -656,10 +653,7 @@ test("tracker badges stay inside existing tiles, preserve progress and distingui
         for (const tile of tiles) {
           const box = tile.getBoundingClientRect();
           const badges = tile.querySelectorAll(".tracker-badge");
-          const textRects = [
-            tile.querySelector("strong"),
-            tile.querySelector("small"),
-          ]
+          const textRects = [tile.querySelector("strong")]
             .filter(Boolean)
             .map((el) => {
               const range = document.createRange();
@@ -688,7 +682,7 @@ test("tracker badges stay inside existing tiles, preserve progress and distingui
                 r.top < t.bottom - 0.1 &&
                 r.bottom > t.top + 0.1
               )
-                bad.push("overlapping progress");
+                bad.push(JSON.stringify({problem:"overlapping progress",label:badge.getAttribute("aria-label"),badge:r,progress:t,width:innerWidth}));
           }
         }
         return bad;
@@ -750,6 +744,6 @@ test("tools share a centered modal and cancel preserves charges and board layout
     await expect(button).toBeFocused();
   }
   await expect(
-    page.locator(".number-marker:not(.number-complete)").first(),
-  ).toHaveCSS("background-color", "rgb(32, 44, 67)");
+    page.locator(".number-marker:not(.number-complete) .tracker-body-art").first(),
+  ).toHaveAttribute("src", /tracker-blue/);
 });

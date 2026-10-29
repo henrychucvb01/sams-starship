@@ -1,0 +1,59 @@
+/* The supplied blank HUD banner is sliced at its frame, with the approved
+   number modules and independently dimmed original connector lights inside. */
+.app .game-terminal .illustrated-tracker { --tracker-height:68px; margin:3px 0; padding:0 8px 2px; border:10px solid transparent; border-image:url('../assets/gameplay/tracker-border.webp') 70 140 70 160 fill / 10px 14px / 0 stretch; border-radius:0; background:none; box-shadow:none; }
+.app .illustrated-tracker .tracker-heading { margin:0 0 1px; line-height:1; }
+.app .illustrated-tracker .tracker-heading .eyebrow { font-size:.5rem; }
+.app .illustrated-tracker .number-register { display:flex; flex-wrap:nowrap; justify-content:flex-start; gap:3px; }
+.app .illustrated-tracker .number-marker { position:relative; flex:0 0 64px; width:64px; height:var(--tracker-height); min-width:0; padding:0; border:0; border-radius:0; background:none; display:grid; place-items:center; container-type:inline-size; }
+.app .illustrated-tracker .number-marker.number-complete { background:none; }
+.tracker-cartridge { position:relative; height:auto; width:min(100cqw,calc(var(--tracker-height) * var(--tracker-ratio))); aspect-ratio:var(--tracker-ratio); }
+.tracker-cartridge > img { position:absolute; inset:0; width:100%; height:100%; object-fit:fill; pointer-events:none; user-select:none; }
+.tracker-cartridge .tracker-unlit-bank { clip-path:inset(86% 27% 0 27%); filter:brightness(.12) saturate(.3); }
+.app .illustrated-tracker .tracker-cartridge > strong { position:absolute; left:50%; top:var(--number-y); transform:translate(-50%,-50%); color:#0b2549; font:900 1.35rem/1 'Trebuchet MS',sans-serif; text-shadow:0 1px #ffffff80; }
+.app .illustrated-tracker .tracker-complete-label { display:none; }
+.app .illustrated-tracker .number-marker > small { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }
+.app .illustrated-tracker .copy-pips { position:absolute; inset:0; margin:0; display:block; pointer-events:none; }
+.app .illustrated-tracker .copy-pips i { position:absolute; display:block; overflow:hidden; margin:0; padding:0; border:0; border-radius:1px; background:none; box-shadow:none; filter:brightness(.12) saturate(.3); transition:filter .2s ease; }
+.app .illustrated-tracker .copy-pips i.pip-cleared { background:none; border:0; box-shadow:none; filter:brightness(1.1) saturate(1.1); }
+.app .illustrated-tracker .copy-pips i img { position:absolute; display:block; max-width:none; object-fit:fill; pointer-events:none; user-select:none; }
+.app .illustrated-tracker .number-marker .tracker-badge { top:0; bottom:auto; width:16px; height:18px; aspect-ratio:auto; border:0; border-radius:0; background:none; }
+.app .illustrated-tracker .tracker-badge.badge-end { right:0; }
+.app .illustrated-tracker .tracker-badge.badge-start { left:0; }
+.app .illustrated-tracker .tracker-special-art { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; clip-path:inset(0 0 14% 0); }
+.app .illustrated-tracker .tracker-badge svg { position:relative; width:45%; height:45%; margin-top:1px; }
+.app .illustrated-tracker .badge-possible { outline:1px dashed currentColor; outline-offset:0; opacity:.8; }
+/* Pack the actual clickable cartridges; do not grow invisible buttons across a rack. */
+.app .game-terminal .wire-row { justify-content:flex-start; gap:3px; }
+.app .game-terminal .wire-tile { --packed-height:var(--tile-height,92px); flex:0 0 auto; width:calc(var(--packed-height) * .52); min-width:0; max-width:none; height:var(--packed-height); }
+.app .game-terminal .wire-tile .scanner-result,.app .game-terminal .wire-tile .incorrect-mark { max-width:100%; font-size:.4rem; white-space:normal; }
+@media(max-width:999px) {
+ .app .game-terminal .illustrated-tracker { --tracker-height:64px; padding:1px 5px 3px; }
+ .app .illustrated-tracker .number-register { flex-wrap:wrap; gap:3px; }
+ .app .illustrated-tracker .number-marker { flex-basis:58px; width:58px; }
+}
+@media(max-width:520px) {
+ .app .game-terminal .illustrated-tracker { --tracker-height:59px; padding:0 1px 2px; border-width:7px; border-image-width:9px; }
+ .app .illustrated-tracker .number-register { gap:2px; }
+ .app .illustrated-tracker .number-marker { flex-basis:calc((100% - 10px)/6); width:auto; height:var(--tracker-height); }
+ .app .illustrated-tracker .tracker-cartridge > strong { font-size:1rem; }
+ .app .illustrated-tracker .number-marker .tracker-badge { width:11px; height:16px; }
+ .app .game-terminal .wire-tile { --packed-height:78px; }
+}
+@media(prefers-reduced-motion:reduce) { .app .illustrated-tracker .copy-pips i { transition:none; } }
+.reduce-motion .illustrated-tracker .copy-pips i { transition:none; }
+@media(min-width:1000px) {
+ .app .game-terminal .illustrated-tracker { --tracker-height:64px; border-width:8px; border-image-width:9px 12px; }
+ .app .game-terminal .board-companion { gap:2px; }
+ .app .game-terminal .ship-monitor-heading { padding:0; }
+ .app .game-terminal .ship-monitor-heading > strong { font-size:1.3rem; }
+ .app .game-terminal .ship-monitor-heading > small { display:none; }
+ .app .game-terminal .mission-ribbon [aria-label="Restoration progress"] { display:none; }
+}
+@media(min-width:1000px) { .app .game-terminal { padding-bottom:4px; } }
+/* Old badge padding must not shift the new illustrated body over its lamps. */
+.app .illustrated-tracker .number-marker:has(.tracker-badge) { padding:0; }
+@media(min-width:1000px) {
+ .mp-page:has(.mp-board) > .back,.mp-page:has(.mp-board) > .text-button { min-height:24px; margin-bottom:0; }
+ .mp-page:has(.mp-board) .mp-status { padding:0; margin:0; }
+ .app .game-terminal.mp-board > h1 { margin:1px 0 2px; }
+}
