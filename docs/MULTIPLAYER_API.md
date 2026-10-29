@@ -44,3 +44,7 @@ Verified from publisher [English rulebook](https://www.cocktailgames.com/wp-cont
 ## Deployment
 
 The room service is not a Vercel function: process-local memory or ephemeral files are not a durable multiplayer backend. Run `npm run server` on a Node 24 host with `STARSHIP_DB` pointing at persistent storage and `STARSHIP_ORIGIN` set to the exact frontend HTTPS origin. `PORT` defaults to 8787; bind loopback locally, configure `STARSHIP_HOST=0.0.0.0` behind the host's HTTPS proxy. Do not scale multiple independent database copies. Backend provisioning/production origin is a deployment dependency, not something the frontend can emulate. See server tests for full local HTTP flows.
+
+## Optional crew artwork metadata
+
+Room creation accepts optional `characters`: one unique ID per human player, chosen from `sam`, `fox`, `bunny`, `cat`, `bear`. Invalid IDs, duplicates and count mismatches return `INVALID_CHARACTERS`. The ordered choices are durable room metadata; each public `players[]` entry exposes an optional `character` assigned by seat order. Existing clients/rooms without this field retain the generic portraits. This metadata does not change participant IDs, powers, turn rules, private circuits or engine state.

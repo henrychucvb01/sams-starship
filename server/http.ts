@@ -55,7 +55,7 @@ export function createRoomServer(service: RoomService, allowedOrigin = 'http://l
       if (request.method === 'GET' && path === '/health') return json(response, 200, { ok: true });
       if (request.method === 'POST' && path === '/api/rooms') {
         const data = await body(request);
-        return json(response, 201, service.create(data.name, data.playerCount, data.missionId, data.difficulty));
+        return json(response, 201, service.create(data.name, data.playerCount, data.missionId, data.difficulty, data.characters));
       }
       const match = /^\/api\/rooms\/([A-Z2-9]{6})(?:\/(join|commands))?$/.exec(path);
       if (!match) throw new RoomError(404, 'NOT_FOUND', 'Endpoint not found.');

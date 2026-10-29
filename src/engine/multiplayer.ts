@@ -19,7 +19,7 @@ export interface RoomView {
   hostId: string;
   playerCount: PlayerCount;
   status: 'lobby' | 'playing' | 'finished';
-  players: { id: string; name: string; ready: boolean; connected: boolean; left: boolean }[];
+  players: { id: string; name: string; character?: string; ready: boolean; connected: boolean; left: boolean }[];
   game: GameState | null;
   expiresAt: number;
 }

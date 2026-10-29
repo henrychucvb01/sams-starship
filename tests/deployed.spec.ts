@@ -6,8 +6,8 @@ test("deployed game supports board navigation, finite tools and actual turns", a
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto("/");
   await page.getByRole("button", { name: "Let's Fly!" }).click();
-  await page.getByRole("button", {name:"Play mode", exact:true}).click();
   await page.getByRole("button", {name:"Continue solo", exact:true}).click();
+  await page.getByRole("button", {name:"Play mode", exact:true}).click();
 
   await page.getByRole("button", { name: "Begin Mission" }).click();
   await expect(page.locator(".wire-tile")).toHaveCount(48);

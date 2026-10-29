@@ -53,7 +53,8 @@ export function App({
     () => multiplayerOrigin() && hasSavedRoom(multiplayerOrigin()) ? "multiplayer" : "menu",
   );
   const [selectedMode, setSelectedMode] = useState(0);
-  const [humanCount, setHumanCount] = useState(2);
+  const [humanCount, setHumanCount] = useState(1);
+  const [crewCharacters, setCrewCharacters] = useState<string[]>(["sam"]);
   const [overlay, setOverlay] = useState<"settings" | "help" | null>(null);
   const [reduced, setReduced] = usePreference("starship-reduced-motion");
   const [difficulty, setDifficulty] = useState("Easy");
@@ -133,18 +134,18 @@ export function App({
         {screen === "menu" && (
           <TitleScreen
             headingRef={heading}
-            onFly={() => setScreen("missions")}
+            onFly={() => setScreen("crew")}
             onHelp={() => setOverlay("help")}
             onSettings={() => setOverlay("settings")}
             reduced={reduced}
           />
         )}
-        {screen === "crew" && <CrewSelection headingRef={heading} onBack={() => setScreen("missions")} onSolo={() => setScreen("intro")} onMultiplayer={count => {setHumanCount(count);setScreen("multiplayer");}}/>}
-        {screen === "multiplayer" && <RoomScreen playerCount={humanCount} headingRef={heading} onBack={() => setScreen("crew")}/>}
+        {screen === "crew" && <CrewSelection headingRef={heading} initialCount={humanCount} initialCharacters={crewCharacters} onBack={menu} onContinue={(count, characters) => {setHumanCount(count);setCrewCharacters(characters);setScreen("missions");}}/>}
+        {screen === "multiplayer" && <RoomScreen characters={crewCharacters} playerCount={humanCount} headingRef={heading} onBack={() => setScreen("crew")}/>}
         {screen === "missions" && (
           <section className="page mission-page game-modes-page">
-            <button className="text-button back" onClick={menu}>
-              ← Back to the ship
+            <button className="text-button back" onClick={() => setScreen("crew")}>
+              ← Back to crew selection
             </button>
             <h1 ref={heading} tabIndex={-1} className="adventure-heading">
               <img src={adventureTitle} alt="Choose Your Adventure!" />
@@ -168,7 +169,7 @@ export function App({
                       <button className="illustrated-mode-button" disabled={i !== 0 || difficulty !== "Easy"} onClick={() => {
                         adapter.chooseMission?.("lights");
                         setSelectedMode(0);
-                        setScreen("crew");
+                        setScreen(humanCount === 1 ? "intro" : "multiplayer");
                       }}>
                         <span>{i === 0 && difficulty === "Easy" ? "Play mode" : "Coming Soon"}</span>
                         <span aria-hidden="true">{i === 0 && difficulty === "Easy" ? "→" : "⌑"}</span>
@@ -248,6 +249,7 @@ export function App({
         {screen === "game" && !ended && (
           <CircuitBoard
             state={state}
+            soloCharacter={crewCharacters[0]}
             adapter={adapter}
             onLeave={() => setScreen("missions")}
             headingRef={heading}

@@ -387,3 +387,18 @@ test('direct-red hit is catastrophic for human seats even with shared shield', (
   assert.ok(!after.circuits.find(c => c.id === red.id)!.restored);
 });
 
+
+test('chosen crew artwork is validated, public and durable without changing participant identity', () => {
+ const dir=mkdtempSync(join(tmpdir(),'starship-characters-')), path=join(dir,'rooms.sqlite');
+ let service=new RoomService(path);
+ try {
+  assert.throws(()=>service.create('Host',2,'lights','easy',['fox','fox']),RoomError);
+  assert.throws(()=>service.create('Host',2,'lights','easy',['fox','unknown']),RoomError);
+  const host=service.create('Host',2,'lights','easy',['bear','cat']);
+  const guest=service.join(host.credentials.code,'Guest');
+  assert.deepEqual(guest.room.players.map(p=>p.character),['bear','cat']);
+  assert.equal(guest.room.players[0].id,host.credentials.playerId);
+  service.close();service=new RoomService(path);
+  assert.deepEqual(service.read(host.credentials.code,host.credentials.token).players.map(p=>p.character),['bear','cat']);
+ } finally {service.close();rmSync(dir,{recursive:true,force:true});}
+});

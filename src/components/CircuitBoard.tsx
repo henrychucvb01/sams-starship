@@ -22,6 +22,7 @@ import { ConnectionOverlay } from "./ConnectionOverlay";
 import { ConfirmationDialog } from "./ConfirmationDialog";
 import { icons, descriptions } from "./Toolkit";
 import { Toolkit } from "./Toolkit";
+import { CrewPortrait } from "../multiplayer/CrewSelection";
 import { Sam, Ship } from "./Ship";
 const clock = (s: number) =>
   `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
@@ -68,7 +69,9 @@ export function CircuitBoard({
   adapter,
   onLeave,
   headingRef,
+  soloCharacter,
 }: {
+  soloCharacter?: string;
   state: MissionView;
   adapter: MissionAdapter;
   onLeave: () => void;
@@ -707,7 +710,7 @@ export function CircuitBoard({
                   }
                 }
                 captain={state.crewFeatures?.captainId === "sam"}
-                portrait={
+                portrait={soloCharacter ? <CrewPortrait character={soloCharacter} /> :
                   <Sam
                     expression={
                       effect?.kind === "hint"

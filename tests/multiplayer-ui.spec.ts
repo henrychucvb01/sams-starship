@@ -10,14 +10,15 @@ const enabled = !!process.env.STARSHIP_MULTIPLAYER_TEST;
 async function select(page: Page, n: number) {
   await page.goto("/");
   await page.getByRole("button", { name: "Let's Fly!" }).click();
-  await page.getByRole("button", {name:"Play mode", exact:true}).click();
   await expect(
     page.getByRole("heading", { name: "Assemble your crew!" }),
   ).toBeVisible();
   await page.locator(`input[name="crew-size"][value="${n}"]`).check();
+  for(const name of ["Fox","Bunny","Cat","Bear"].slice(0,n-1)) await page.getByRole("button",{name:`Choose ${name}`,exact:true}).click();
   await page
     .getByRole("button", { name: `Continue with ${n} players` })
     .click();
+  await page.getByRole("button",{name:"Play mode",exact:true}).click();
 }
 type Seat = {
   page: Page;
@@ -132,7 +133,6 @@ test("crew selection keeps solo separate and supports every crew size with keybo
 }, info) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Let's Fly!" }).click();
-  await page.getByRole("button", {name:"Play mode", exact:true}).click();
   await expect(
     page.getByRole("button", { name: "Continue solo", exact: true }),
   ).toBeVisible();
@@ -141,10 +141,10 @@ test("crew selection keeps solo separate and supports every crew size with keybo
     await radio.focus();
     await page.keyboard.press("Space");
     await expect(radio).toBeChecked();
-    await expect(page.locator(".parade-member")).toHaveCount(n);
+    await expect(page.locator(".parade-member")).toHaveCount(1);
     await expect(
       page.getByRole("button", { name: `Continue with ${n} players` }),
-    ).toBeEnabled();
+    ).toBeDisabled();
   }
   expect(
     await page.evaluate(

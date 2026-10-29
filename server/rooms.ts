@@ -15,7 +15,7 @@ type Member = { id: string; name: string; tokenHash: string; ready: boolean; see
 type Entry = { actor: string; action: GameCommand | { type: 'restart' }; elapsed: number };
 type Room = {
   code: string; revision: number; hostId: string; count: PlayerCount;
-  members: Member[]; mission: string; difficulty: Difficulty; seed: number; dealKey: string;
+  characters?: string[]; members: Member[]; mission: string; difficulty: Difficulty; seed: number; dealKey: string;
   started: boolean; journal: Entry[]; lastTick: number;
   createdAt: number; touchedAt: number;
   requests: { actor: string; id: string }[];
@@ -63,10 +63,11 @@ export class RoomService {
     const token = randomBytes(32).toString('base64url');
     return { token, member: { id: randomBytes(8).toString('hex'), name: validName(name), tokenHash: hash(token), ready: false, seenAt: this.now(), left: false } };
   }
-  create(name: unknown, count: unknown, mission: unknown = 'lights', difficulty: unknown = 'easy'): RoomAdmission {
+  create(name: unknown, count: unknown, mission: unknown = 'lights', difficulty: unknown = 'easy', characters?: unknown): RoomAdmission {
     if (![2, 3, 4, 5].includes(count as number)) return fail(400, 'INVALID_COUNT', 'Choose 2–5 human players.');
     if (typeof mission !== 'string' || !MISSIONS.some(m => m.id === mission && m.puzzle === 'matching')) return fail(400, 'INVALID_MISSION', 'Unknown matching mission.');
     if (!['easy', 'medium', 'hard'].includes(difficulty as string)) return fail(400, 'INVALID_DIFFICULTY', 'Unknown difficulty.');
+    if (characters !== undefined && (!Array.isArray(characters) || characters.length !== count || new Set(characters).size !== characters.length || characters.some(c => !['sam', 'fox', 'bunny', 'cat', 'bear'].includes(c)))) return fail(400, 'INVALID_CHARACTERS', 'Choose one unique character per player.');
     const { member, token } = this.#member(name);
     return this.#transaction(() => {
       this.#cleanup();
@@ -75,7 +76,7 @@ export class RoomService {
       let code: string;
       do { code = Array.from({ length: 6 }, () => alphabet[randomInt(alphabet.length)]).join(''); }
       while (this.db.prepare('SELECT 1 FROM rooms WHERE code=?').get(code));
-      const room: Room = { code, revision: 0, count: count as PlayerCount, mission, difficulty: difficulty as Difficulty, seed: randomInt(0x7fffffff), dealKey: randomBytes(32).toString('hex'), hostId: member.id, members: [member], started: false, journal: [], lastTick: this.now(), createdAt: this.now(), touchedAt: this.now(), requests: [] };
+      const room: Room = { characters: characters as string[] | undefined, code, revision: 0, count: count as PlayerCount, mission, difficulty: difficulty as Difficulty, seed: randomInt(0x7fffffff), dealKey: randomBytes(32).toString('hex'), hostId: member.id, members: [member], started: false, journal: [], lastTick: this.now(), createdAt: this.now(), touchedAt: this.now(), requests: [] };
       this.#save(room);
       return { credentials: { code, playerId: member.id, token }, room: this.#view(room, member.id) };
     });
@@ -195,7 +196,7 @@ export class RoomService {
   }
   #view(room: Room, playerId: string, engine = this.#engine(room)): RoomView {
     const game = engine?.snapshotFor(playerId) ?? null;
-    return { code: room.code, revision: room.revision, playerId, hostId: room.hostId, playerCount: room.count, status: !game ? 'lobby' : game.status === 'playing' ? 'playing' : 'finished', players: room.members.map(p => ({ id: p.id, name: p.name, ready: p.ready, left: p.left, connected: !p.left && this.now() - p.seenAt < CONNECTED_MS })), game, expiresAt: Math.min(room.touchedAt + IDLE_MS, room.createdAt + MAX_AGE_MS) };
+    return { code: room.code, revision: room.revision, playerId, hostId: room.hostId, playerCount: room.count, status: !game ? 'lobby' : game.status === 'playing' ? 'playing' : 'finished', players: room.members.map((p, i) => ({ id: p.id, name: p.name, character: room.characters?.[i], ready: p.ready, left: p.left, connected: !p.left && this.now() - p.seenAt < CONNECTED_MS })), game, expiresAt: Math.min(room.touchedAt + IDLE_MS, room.createdAt + MAX_AGE_MS) };
   }
   #cleanup() {
     for (const row of this.db.prepare('SELECT code,data FROM rooms').all()) {

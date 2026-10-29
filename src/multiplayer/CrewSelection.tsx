@@ -19,10 +19,14 @@ const boardingCrew = [
 export function CrewPortrait({
   index = 0,
   name,
+  character,
 }: {
   index?: number;
   name?: string;
+  character?: string;
 }) {
+  const approved = boardingCrew.find(c => c.name.toLowerCase() === character);
+  if (approved) return <img className="approved-crew-avatar" src={approved.image} alt={name ?? approved.name} />;
   const colors = ["#cdb9ef", "#a9decf", "#f2c3aa", "#a9cbed", "#edb8d5"];
   return (
     <svg
@@ -97,40 +101,44 @@ export function CrewPortrait({
 }
 export function CrewSelection({
   headingRef,
-  onSolo,
-  onMultiplayer,
+  onContinue,
+  initialCount = 1,
+  initialCharacters = ["sam"],
   onBack,
 }: {
   headingRef: RefObject<HTMLHeadingElement | null>;
-  onSolo: () => void;
-  onMultiplayer: (count: number) => void;
+  onContinue: (count: number, characters: string[]) => void;
+  initialCount?: number;
+  initialCharacters?: string[];
   onBack: () => void;
 }) {
-  const [count, setCount] = useState(1);
+  const [count, setCount] = useState(initialCount);
+  const [chosen, setChosen] = useState(initialCharacters);
   return (
     <section className="crew-selection spaceport-selection page" aria-labelledby="assemble-title">
       <button className="text-button back" onClick={onBack}>
         ← Back to the ship
       </button>
-      <div className="boarding-pass-tag"><span aria-hidden="true">✦</span> SPACEPORT TERMINAL <span className="boarding-gate">GATE 01</span></div>
       <h1 id="assemble-title" tabIndex={-1} ref={headingRef}>
         Assemble your <em>crew!</em>
       </h1>
       <p className="crew-selection-intro">
         Big adventures begin with a little crew. Who’s coming aboard?
       </p>
-      <div className="crew-parade spaceport-parade" aria-hidden="true">
+      <div className="crew-parade spaceport-parade" role="group" aria-label="Choose your characters">
         {boardingCrew.map((character, i) => {
-          const active = i < (count === 1 ? 3 : count);
+          const id = character.name.toLowerCase();
+          const active = chosen.includes(id);
           return (
-            <div key={character.name} data-character={character.name.toLowerCase()}
+            <button type="button" key={character.name} aria-label={`Choose ${character.name}`} aria-pressed={active}
+              onClick={() => setChosen(active ? chosen.filter(c => c !== id) : count === 1 ? [id] : chosen.length < count ? [...chosen, id] : chosen)} data-character={character.name.toLowerCase()}
               className={`boarding-character ${active ? "parade-member aboard" : "standby"}`}
               style={{ "--crew-index": i } as CSSProperties}>
               <div className="character-sprite">
                 <img src={character.image} alt="" width="400" height="440" draggable="false" />
               </div>
-              <span className="character-nameplate">{character.name}</span>
-            </div>
+              <span className="character-nameplate">{character.name}{active ? " ✓" : ""}</span>
+            </button>
           );
         })}
       </div>
@@ -159,9 +167,11 @@ export function CrewSelection({
           ))}
         </div>
       </fieldset>
+      <p className="crew-choice-status" role="status">{chosen.length} of {count} characters selected{chosen.length !== count ? " — tap characters to fill your crew" : ""}</p>
       <button
+        disabled={chosen.length !== count}
         className="primary crew-continue spaceport-continue"
-        onClick={() => (count === 1 ? onSolo() : onMultiplayer(count))}
+        onClick={() => onContinue(count, chosen)}
       >
         <img src={continueButton} alt="" width="900" height="270" draggable="false" />
         <span className="continue-label">{count === 1 ? "Continue solo" : `Continue with ${count} players`}</span>

@@ -13,10 +13,12 @@ export const multiplayerOrigin = () =>
   String(import.meta.env.VITE_MULTIPLAYER_URL ?? "").trim();
 export function RoomScreen({
   playerCount,
+  characters,
   headingRef,
   onBack,
 }: {
   playerCount: number;
+  characters?: string[];
   headingRef: RefObject<HTMLHeadingElement | null>;
   onBack: () => void;
 }) {
@@ -114,6 +116,7 @@ export function RoomScreen({
                       void client.create(
                         name.trim(),
                         playerCount as PlayerCount,
+                        characters,
                       )
                     }
                   >
@@ -217,7 +220,7 @@ export function RoomScreen({
               const p = players[i];
               return p ? (
                 <article className="mp-seat" key={p.id}>
-                  <CrewPortrait index={i} name={`${p.name} astronaut`} />
+                  <CrewPortrait index={i} character={p.character} name={`${p.name} astronaut`} />
                   <strong>
                     {p.name}
                     {p.id === room.playerId ? " · You" : ""}

@@ -186,10 +186,11 @@ export class RoomClient {
       this.publish({ busy: false });
     }
   }
-  create = (name: string, playerCount: PlayerCount) =>
+  create = (name: string, playerCount: PlayerCount, characters?: string[]) =>
     this.admit("/api/rooms", {
       name,
       playerCount,
+      characters,
       missionId: "lights",
       difficulty: "easy",
     });

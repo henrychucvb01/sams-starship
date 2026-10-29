@@ -11,8 +11,8 @@ async function launch(page: Page, path = "/") {
   await page.clock.install();
   await page.goto(path);
   await page.getByRole("button", { name: "Let's Fly!" }).click();
-  await page.getByRole("button", {name:"Play mode", exact:true}).click();
   await page.getByRole("button", {name:"Continue solo", exact:true}).click();
+  await page.getByRole("button", {name:"Play mode", exact:true}).click();
 
   await page.getByRole("button", { name: "Begin Mission" }).click();
   await finishSetup(page);
@@ -194,6 +194,7 @@ test("real standard-deck mission: sorted board, public deductions, AI turns, vic
   await page.clock.runFor(2100);
   await expect(page.getByText(/4:5[0-9]/, { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Leave mission" }).click();
+  await page.getByRole("button", { name: "Back to crew selection" }).click();
   await page.getByRole("button", { name: "Back to the ship" }).click();
   await expect(page.getByRole("button", { name: "Let's Fly!" })).toBeVisible();
   expect(errors).toEqual([]);
@@ -270,6 +271,7 @@ test("production navigation, persisted preferences, off-turn controls, timeout a
   await expect(page.getByRole("checkbox")).toBeChecked();
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Let's Fly!" }).click();
+  await page.getByRole("button", {name:"Continue solo",exact:true}).click();
   const card = page.locator(".adventure-mode").first();
   await card.getByRole("combobox").selectOption("Hard");
   await expect(card.locator(".illustrated-mode-button")).toBeDisabled();
@@ -355,8 +357,8 @@ test("Self-Match clears all four; rejected pair explains eligibility without dam
   ).toEqual(before);
   await page.goto("/tests/fixtures/real.html");
   await page.getByRole("button", { name: "Let's Fly!" }).click();
-  await page.getByRole("button", {name:"Play mode", exact:true}).click();
   await page.getByRole("button", {name:"Continue solo", exact:true}).click();
+  await page.getByRole("button", {name:"Play mode", exact:true}).click();
 
   await page.getByRole("button", { name: "Begin Mission" }).click();
   await finishSetup(page);
@@ -433,8 +435,8 @@ test("later-mission scanner and dual scanner target controls use real tool outco
   await expect(page.locator('[data-slot="nova-0"] strong')).toHaveText("?");
   await page.goto("/tests/fixtures/real.html?tools=all");
   await page.getByRole("button", { name: "Let's Fly!" }).click();
-  await page.getByRole("button", {name:"Play mode", exact:true}).click();
   await page.getByRole("button", {name:"Continue solo", exact:true}).click();
+  await page.getByRole("button", {name:"Play mode", exact:true}).click();
 
   await page.getByRole("button", { name: "Begin Mission" }).click();
   await finishSetup(page);
@@ -566,6 +568,7 @@ async function launchLab(page: Page, kind: "yellow" | "red") {
   await page.clock.install();
   await page.goto("/tests/fixtures/real.html");
   await page.getByRole("button", { name: "Let's Fly!" }).click();
+  await page.getByRole("button", {name:"Continue solo",exact:true}).click();
   await page
     .getByRole("button", {
       name: kind === "yellow" ? /Circuit Training 4/ : /Circuit Training 7/,
