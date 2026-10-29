@@ -757,7 +757,7 @@ export function CircuitBoard({
                   }
                 }
                 captain={state.crewFeatures?.captainId === "sam"}
-                portrait={soloCharacter ? <CrewPortrait character={soloCharacter} /> :
+                portrait={soloCharacter ? <CrewPortrait character={soloCharacter} faceOnly /> :
                   <Sam
                     expression={
                       effect?.kind === "hint"

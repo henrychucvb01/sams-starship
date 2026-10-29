@@ -9,6 +9,12 @@ import bear from "../assets/crew/bear.webp";
 import idleButton from "../assets/crew/selection-blue.webp";
 import selectedButton from "../assets/crew/selection-gold.webp";
 import continueButton from "../assets/crew/continue-gold.webp";
+import faceSam from "../assets/gameplay/face-sam.webp";
+import faceFox from "../assets/gameplay/face-fox.webp";
+import faceBunny from "../assets/gameplay/face-bunny.webp";
+import faceCat from "../assets/gameplay/face-cat.webp";
+import faceBear from "../assets/gameplay/face-bear.webp";
+const faceArtwork:Record<string,string>={sam:faceSam,fox:faceFox,bunny:faceBunny,cat:faceCat,bear:faceBear};
 const boardingCrew = [
   { name: "Sam", image: sam },
   { name: "Fox", image: fox },
@@ -20,18 +26,20 @@ export function CrewPortrait({
   index = 0,
   name,
   character,
+  faceOnly = false,
 }: {
   index?: number;
   name?: string;
   character?: string;
+  faceOnly?: boolean;
 }) {
   const approved = boardingCrew.find(c => c.name.toLowerCase() === character);
-  if (approved) return <img className="approved-crew-avatar" src={approved.image} alt={name ?? approved.name} />;
+  if (approved) return <img className="approved-crew-avatar" src={faceOnly ? faceArtwork[approved.name.toLowerCase()] : approved.image} data-portrait={faceOnly ? "face" : "full"} alt={name ?? approved.name} />;
   const colors = ["#cdb9ef", "#a9decf", "#f2c3aa", "#a9cbed", "#edb8d5"];
   return (
     <svg
       className="crew-portrait"
-      viewBox="0 0 96 112"
+      viewBox={faceOnly ? "12 10 72 65" : "0 0 96 112"}
       role={name ? "img" : undefined}
       aria-label={name}
       aria-hidden={name ? undefined : true}

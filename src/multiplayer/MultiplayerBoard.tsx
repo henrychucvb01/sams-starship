@@ -318,7 +318,7 @@ export function MultiplayerBoard({
                     captain={g.captain === p.id}
                     self={p.id === me}
                     controlLabel={p.id === me ? "YOU" : "HUMAN CREWMATE"}
-                    portrait={<CrewPortrait index={i} character={presence?.character} />}
+                    portrait={<CrewPortrait index={i} character={presence?.character} faceOnly />}
                     detail={`${presence?.left ? "Left · seat reserved" : presence?.connected ? "Connected" : "Reconnecting"} · ${slots.filter((c) => !c.restored).length} circuits left`}
                     onAction={openAction}
                     canAct={canAct}

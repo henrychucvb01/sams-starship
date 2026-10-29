@@ -522,6 +522,7 @@ test("yellow lab reveals only authorized types and updates separate category pro
   await expect(page.locator('[data-slot="sam-6"] .sort-position')).toHaveText(
     "5A",
   );
+  await expect(page.locator('[data-slot="sam-6"]')).toHaveCSS("background-image", /tracker-yellow/);
   await page.locator('[data-slot="sam-6"]').click();
   await page.locator('[data-slot="nova-8"]').click();
   await expect(
@@ -565,6 +566,7 @@ test("red lab warns only about public identities and red trigger has distinct fa
     "data-circuit-type",
     "hidden",
   );
+  await expect(page.locator('[data-slot="sam-5"]')).toHaveCSS("background-image", /tracker-red/);
   await page.locator('[data-slot="sam-5"]').click();
   await expect(
     page.getByRole("button", { name: "Isolate Overload", exact: true }),
