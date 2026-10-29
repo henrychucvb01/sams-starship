@@ -122,6 +122,10 @@ createRoot(document.getElementById("root")!).render(
   <>
     <div style={{ padding: 12, background: "#442d48", color: "#fff" }}>
       TEST FIXTURES ONLY · Commands: <span id="command-count">0</span>
+      <label>Hull preview <select aria-label="Hull preview" defaultValue={100} onChange={e=>publish({...state,hull:Number(e.target.value)})}>
+        {[100,90,80,79,75,60,59,50,40,39,25,20,19,10,1,0].map(n=><option key={n} value={n}>{n}%</option>)}
+      </select></label>
+      <button onClick={()=>publish({...state})}>Rerender unchanged hull</button>
       {(["nova", "sam", "damage", "success"] as const).map((k) => (
         <button key={k} onClick={() => scenario(k)}>
           Fixture {k}

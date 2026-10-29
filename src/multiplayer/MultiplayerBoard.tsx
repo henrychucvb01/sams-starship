@@ -1,3 +1,4 @@
+import { ShipStatusHeading, HullHealthBar, ShipCondition } from "../components/ShipDamageMonitor";
 import { CrewReactionContext, StatusShip } from "../components/TerminalArt";
 import { SetupPopup } from "../components/SetupPopup";
 import { useEffect, useRef, useState, type RefObject, type ReactNode } from "react";
@@ -244,13 +245,10 @@ export function MultiplayerBoard({
                   : null
               }
             />
-        <aside className="board-companion" style={{gridRow:`1 / span ${Math.max(1,g.participants.length-1)}`}}>      <div className="mission-ribbon">
-        <span>
-          Hull{" "}
-          <strong>
-            {Math.round(g.hull/g.maxHull*100)}%
-          </strong>
-        </span>
+        <aside className="board-companion" style={{gridRow:`1 / span ${Math.max(1,g.participants.length-1)}`}}>
+        <ShipStatusHeading hull={g.hull} maxHull={g.maxHull} defeated={g.status === "lost"}/>
+        <div className="mission-ribbon">
+        <HullHealthBar hull={g.hull} maxHull={g.maxHull}/>
         <span>
           Clock{" "}
           <strong>
@@ -267,21 +265,22 @@ export function MultiplayerBoard({
         <span>
           Energy <strong>{g.energy}</strong>
         </span>
+        <span>Remaining <strong>{g.remainingCircuits}</strong></span>
         <span className="turn-pill">
           {g.phase === "startingInformation"
             ? "Choose starting information"
             : `${name(g.currentParticipant)}’s turn${turn ? " · Your turn" : ""}`}
         </span>
       </div>
-<p>Remaining circuits: {g.remainingCircuits}</p>
+
           <div
             className={`attack-scene hull-${stage} ${effect?.kind === "damage" ? "under-attack" : effect?.kind === "critical" ? "critical-failure" : ""} ${effect?.kind === "success" ? "system-restoring" : ""}`}
           >
-            <span className="panel-kicker">ONE CREW · ONE SHARED SHIP</span>
+
             {g.shieldActive && (
               <div className="energy-shield" aria-label="Shield active" />
             )}
-            <StatusShip condition={stage} />
+            <StatusShip hull={g.hull} maxHull={g.maxHull} defeated={g.status === "lost"} />
             {effect?.kind === "damage" && (
               <div className="attack-vfx">
                 <span className="projectile" />
@@ -294,10 +293,8 @@ export function MultiplayerBoard({
                 ⚠ CATASTROPHIC OVERLOAD
               </div>
             )}
-            <p className="damage-caption">
-              {g.status === "lost" ? "Mission failed" : `Ship ${stage}`}
-            </p>
           </div>
+          <ShipCondition hull={g.hull} maxHull={g.maxHull} defeated={g.status === "lost"}/>
         </aside>
             {[
               ...g.participants.filter((p) => p.id !== me),

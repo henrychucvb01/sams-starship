@@ -273,6 +273,11 @@ test("network failure preserves an immediate command; explicit retry spends once
             e.type === "CONNECTION_SUCCESS" || e.type === "CONNECTION_FAILED",
         ),
     ).toHaveLength(1);
+    const sharedHull=active.room()!.game!.hull/active.room()!.game!.maxHull*100;
+    for(const seat of seats) await expect(seat.page.locator('.ship-damage-visual')).toHaveAttribute('data-hull',String(sharedHull));
+    const conditions=await Promise.all(seats.map(seat=>seat.page.locator('.ship-damage-visual').getAttribute('data-condition')));
+    expect(new Set(conditions).size).toBe(1);
+
   } finally {
     await Promise.all(seats.map((s) => s.context.close()));
   }

@@ -15,3 +15,12 @@ Ship status reuses the approved `title/approved-ship.webp`. Character artwork re
 Numbers, questions, slot labels, selection, progress pips, messages, status values and actions are live HTML. Cartridge lights never contribute to progress calculations. No engine, AI, deck, room service or game rules changed.
 
 `damaged-monitor.webp`: blank second panel cropped (25,280,724,466) from owner-approved “Damaged Spaceship Bridge: DANGER status.png”, Library libfile_a46dd34618688191892e36c833c36daf. Used only as the defeat result frame; baked status labels from the source are excluded.
+
+## Dynamic ship damage monitor
+
+- `ship-healthy.webp`: **Top-Down Colorful Sci-Fi Spaceship.png**, approved Library asset `libfile_7e195ae006e88191987ebec7c51a58b0`.
+- `ship-damaged.webp`: **Battle-Worn Cartoon Spaceship Overhead.png**, approved Library asset `libfile_b3d513d38d40819193ab8db0b32f53a3`.
+- Both originals are 1672×941. Normalized to RGB. The damaged source is registered to the healthy reference by translation **(+3,+5) source pixels**, without rotation, stretching or independent scaling. Translation is the median offset from three stable high-correlation patches: healthy centers (559,310), (806,385), (937,164) matched to damaged centers (556,305), (803,377), (935,160). Local generated damage changes some contours; remaining stable-landmark differences are under two pixels in the 960px export.
+- Both registered images use the identical crop **(90,0,1650,910)** and proportional resize to **960×560**, WebP quality 88, method 6. Combined image payload: **218,466 bytes**. The originals' orientation, colors, stars, engine glow and smoke are retained; no replacement art is generated.
+- `ShipDamageMonitor.tsx` uses a healthy base plus five copies of the same cached damaged asset, each with a fixed soft elliptical CSS mask. Cockpit, upper engine, central hull, lower engine and rear systems activate progressively at presentation thresholds 100/80/60/40/20. Only zone opacity transitions; the entire damaged image is shown at zero hull or authoritative defeat. The displayed percentage and bar still show the actual supplied hull even for a catastrophic defeat that leaves numeric hull above zero.
+- Zone positions and strengths derive only from supplied hull/maxHull and terminal status, never randomness or local elapsed time. CSS handles damage/repair glows and reduced motion. No engine, server, rule, database or network-command changes are involved.

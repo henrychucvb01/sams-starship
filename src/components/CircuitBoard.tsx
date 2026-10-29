@@ -1,3 +1,4 @@
+import { ShipStatusHeading, HullHealthBar, ShipCondition } from "./ShipDamageMonitor";
 import { CrewReactionContext, StatusShip } from "./TerminalArt";
 import {
   useEffect,
@@ -618,10 +619,10 @@ export function CircuitBoard({
                 {turnText}
               </span>
             </div>
-        <aside className="board-companion" style={{gridRow:`2 / span ${Math.max(1,state.rooms.length)}`}}>      <div className="mission-ribbon" aria-label="Mission status">
-        <span>
-          Hull <strong>{state.hull}%</strong>
-        </span>
+        <aside className="board-companion" style={{gridRow:`2 / span ${Math.max(1,state.rooms.length)}`}}>
+        <ShipStatusHeading hull={state.hull} defeated={state.status === "defeat"}/>
+        <div className="mission-ribbon" aria-label="Mission status">
+        <HullHealthBar hull={state.hull}/>
         <span>
           Clock <strong>{clock(state.secondsRemaining)}</strong>
         </span>
@@ -650,9 +651,9 @@ export function CircuitBoard({
           <div
             className={`attack-scene hull-${hullStage} ${effect?.kind === "damage" ? "under-attack" : effect?.kind === "critical" ? "critical-failure" : ""} ${effect?.kind === "success" ? "system-restoring" : ""}`}
             data-effect={effect?.id}
-            aria-label={`Spaceship condition: ${hullStage}`}
+            aria-label="Shared ship monitor"
           >
-            <span className="panel-kicker">SS BUTTER · SHARED SHIP</span>
+
             {(state.shieldActive ||
               effect?.kind === "shield" ||
               effect?.kind === "blocked") && (
@@ -672,7 +673,7 @@ export function CircuitBoard({
                 aria-hidden="true"
               />
             )}
-            <StatusShip condition={hullStage} />
+            <StatusShip hull={state.hull} defeated={state.status === "defeat"} />
             {effect?.kind === "damage" && (
               <div className="attack-vfx" key={effect.id} aria-hidden="true">
                 <span className="projectile" />
@@ -687,21 +688,8 @@ export function CircuitBoard({
                 ⚠ RED CIRCUIT · CRITICAL FAILURE
               </div>
             )}
-            <span className="ship-smoke" aria-hidden="true">
-              ∿ ∿ ∿
-            </span>
-            <p className="damage-caption">
-              {hullStage === "normal"
-                ? "Ship stable"
-                : hullStage === "minor"
-                  ? "Minor damage · electrical sparks"
-                  : hullStage === "heavy"
-                    ? "Heavy damage · smoke detected"
-                    : hullStage === "critical"
-                      ? "Critical hull · electrical failure"
-                      : "Hull lost · emergency shutdown"}
-            </p>
           </div>
+          <ShipCondition hull={state.hull} defeated={state.status === "defeat"}/>
         </aside>
             {state.rooms.map((room) => (
               <section

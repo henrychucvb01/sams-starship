@@ -2,7 +2,6 @@ import { createContext, useContext, useEffect, useRef, useState, type ReactNode 
 import type { MissionView } from '../types/presentation';
 import '../styles/gameplay-art.css';
 import frame from '../assets/gameplay/portrait-frame.webp';
-import shipArt from '../assets/title/approved-ship.webp';
 import captainBadge from '../assets/gameplay/captain-badge.webp';
 type Effect=NonNullable<MissionView['effects']>[number];
 export const CrewReactionContext=createContext<{effect?:Effect|null;captain?:string;status?:string}>({});
@@ -25,4 +24,4 @@ export function CrewCommunication({portrait,id,name}: {portrait:ReactNode;id:str
 }
 export function CaptainArt(){return <img className="captain-art" src={captainBadge} alt=""/>;}
 
-export function StatusShip({condition}: {condition: string}) { return <img className={`status-ship-art ${condition}`} src={shipArt} alt={`Spaceship condition: ${condition}`} />; }
+export { StatusShip } from "./ShipDamageMonitor";
