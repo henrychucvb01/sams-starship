@@ -77,3 +77,7 @@ The Game Mode screen now uses the owner-approved Control Center, compact title, 
 Navigation is now title → Game Mode → Crew Selection → separate solo intro/game or existing multiplayer lobby. Crew Back returns to Game Mode. The Game Mode page omits the shared header/footer; other pages retain their existing chrome behavior. Training remains available. No server, engine, authority, private-state, Captain, equipment or character-power implementation changed.
 
 Validation: release build and server type check pass; 76 engine/server/adapter tests, 78 desktop/mobile browser tests against a real local room service, and 2 compiled-production browser smoke tests pass. Layout checks cover 320, 390, 768, 1024 and 1440 pixels; all four selections, keyboard focus, reduced motion, difficulty locks, solo completion, 2–5 humans, privacy, powers/equipment, refresh/rejoin and replay Captain rotation are covered.
+
+### Panel background correction
+
+Removed the rectangular room scene surrounding the combined panels using SVG silhouette clips on the approved illustration. Desktop shows the four clipped panels over the Control Center; tablet/phone selections use individual clips from that same source. The image itself, engine and navigation remain unchanged. Release build and 8 focused desktop/mobile artwork/navigation checks pass.

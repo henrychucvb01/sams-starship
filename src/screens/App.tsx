@@ -4,7 +4,7 @@ import { RoomScreen, multiplayerOrigin } from "../multiplayer/RoomScreen";
 import { hasSavedRoom } from "../multiplayer/roomClient";
 import adventureTitle from "../assets/game-modes/adventure-title.webp";
 import "../styles/game-modes.css";
-import panelsArt from "../assets/game-modes/four-panels.webp";
+import { AdventurePanels } from "../components/AdventurePanels";
 import { TitleScreen } from "../components/TitleScreen";
 import { CircuitBoard } from "../components/CircuitBoard";
 import { Ship, Sam } from "../components/Ship";
@@ -150,10 +150,11 @@ export function App({
               <img src={adventureTitle} alt="Choose Your Adventure!" />
             </h1>
             <div className="adventure-stage">
-              <img className="combined-panels" src={panelsArt} alt="" />
+              <AdventurePanels />
               <div className="adventure-options" aria-label="Game Modes">
                 {gameModes.map(([name, description], i) => (
                   <article className={`adventure-mode mode-${i} ${selectedMode === i ? "selected" : ""}`} key={name}>
+                    <AdventurePanels index={i} />
                     <button className="panel-select" aria-label={`Select ${name}`} aria-pressed={selectedMode === i} onClick={() => setSelectedMode(i)}>
                       <span className="panel-selection-label">{selectedMode === i ? "Selected" : "Explore"}</span>
                     </button>

@@ -4,8 +4,10 @@ test('approved adventure artwork, panel selection, difficulty locks and crew-fir
  await page.goto('/tests/fixtures/real.html');await page.getByRole('button',{name:"Let's Fly!"}).click();
  await expect(page.getByRole('heading',{name:'Choose Your Adventure!',exact:true})).toBeFocused();
  await expect(page.locator('header.topbar,footer')).toHaveCount(0);
+ await expect(page.locator('.combined-panels clipPath path')).toHaveCount(4);
+ await expect(page.locator('.individual-panel-art')).toHaveCount(4);
  const modes=page.locator('.adventure-mode');await expect(modes).toHaveCount(4);
- await expect.poll(()=>page.locator('.adventure-heading img,.combined-panels').evaluateAll(els=>els.every(el=>(el as HTMLImageElement).complete&&(el as HTMLImageElement).naturalWidth>0))).toBe(true);
+ await expect.poll(()=>page.locator('.adventure-heading img').evaluateAll(els=>els.every(el=>(el as HTMLImageElement).complete&&(el as HTMLImageElement).naturalWidth>0))).toBe(true);
  for(const name of ['Restore the Lights','Navigation Crisis','Power Overload','Signal Blackout']){
   const select=page.getByRole('button',{name:`Select ${name}`,exact:true});await select.click();await expect(select).toHaveAttribute('aria-pressed','true');
  }
