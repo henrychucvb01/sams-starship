@@ -10,8 +10,11 @@ const shapes = [
 const bounds = ['0 130 590 645', '420 130 580 645', '850 130 590 645', '1295 130 575 645'];
 export function AdventurePanels({ index }: { index?: number }) {
  const id = index === undefined ? 'all-adventure-panels' : `adventure-panel-${index}`;
+ const indices = index === undefined ? [0, 1, 2, 3] : [index];
  return <svg className={index === undefined ? 'combined-panels' : 'individual-panel-art'} viewBox={index === undefined ? '0 0 1870 841' : bounds[index]} aria-hidden="true" focusable="false">
-  <defs><clipPath id={id}>{(index === undefined ? shapes : [shapes[index]]).map((d, i) => <path key={i} d={d}/>)}</clipPath></defs>
-  <image href={panelsArt} width="1870" height="841" clipPath={`url(#${id})`}/>
+  <defs>{indices.map(i => <clipPath key={i} id={`${id}-${i}`}><path d={shapes[i]}/></clipPath>)}</defs>
+  {indices.map(i => <g key={i} className={`panel-light mode-light-${i}`}>
+   <image href={panelsArt} width="1870" height="841" clipPath={`url(#${id}-${i})`}/>
+  </g>)}
  </svg>;
 }

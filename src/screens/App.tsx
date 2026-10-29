@@ -161,11 +161,11 @@ export function App({
                     <div className="mode-copy">
                       <h2>{name}</h2>
                       <p>{description}</p>
-                      {i === 0 && <label>Difficulty
+                      <div className="mode-difficulty">{i === 0 && <label>Difficulty
                         <select value={difficulty} onChange={e => setDifficulty(e.target.value)}>
                           <option>Easy</option><option>Medium</option><option>Hard</option>
                         </select>
-                      </label>}
+                      </label>}</div>
                       <button className="illustrated-mode-button" disabled={i !== 0 || difficulty !== "Easy"} onClick={() => {
                         adapter.chooseMission?.("lights");
                         setSelectedMode(0);

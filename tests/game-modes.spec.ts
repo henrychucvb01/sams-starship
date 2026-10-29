@@ -16,6 +16,12 @@ test('approved adventure artwork, panel selection, difficulty locks and crew-fir
  const difficulty=modes.first().getByRole('combobox');for(const level of ['Medium','Hard']){await difficulty.selectOption(level);await expect(modes.first().locator('.illustrated-mode-button')).toBeDisabled();}
  await difficulty.selectOption('Easy');
  for(const width of [320,390,768,1024,1440]){await page.setViewportSize({width,height:1000});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(await modes.locator('.illustrated-mode-button').evaluateAll(els=>els.every(el=>el.getBoundingClientRect().height>=44))).toBe(true);}
+ await page.setViewportSize({width:1440,height:1000});
+ for(const selector of ['h2','.mode-copy p','.illustrated-mode-button']){
+  const ys=await modes.locator(selector).evaluateAll(els=>els.map(el=>el.getBoundingClientRect().y));
+  expect(Math.max(...ys)-Math.min(...ys)).toBeLessThan(1);
+ }
+ await expect(modes.first().locator('.panel-select')).toHaveCSS('box-shadow','none');
  await page.setViewportSize(info.project.name==='mobile'?{width:390,height:844}:{width:1440,height:1000});
  await page.screenshot({path:`docs/previews/${info.project.name}-adventure-art.png`,fullPage:true});
  await page.getByRole('button',{name:'Play mode',exact:true}).click();await expect(page.getByRole('heading',{name:'Assemble your crew!'})).toBeVisible();

@@ -81,3 +81,7 @@ Validation: release build and server type check pass; 76 engine/server/adapter t
 ### Panel background correction
 
 Removed the rectangular room scene surrounding the combined panels using SVG silhouette clips on the approved illustration. Desktop shows the four clipped panels over the Control Center; tablet/phone selections use individual clips from that same source. The image itself, engine and navigation remain unchanged. Release build and 8 focused desktop/mobile artwork/navigation checks pass.
+
+### Panel text and lighting alignment
+
+Game Mode titles, descriptions and launch buttons now share fixed rows. The text backings shift left and follow the panel angle while labels stay horizontal. Difficulty keeps a reserved row on every mode so buttons align. Selection/hover/focus brighten the clipped artwork and its own silhouette rather than drawing a separate skewed rectangle. Release build and 8 focused desktop/mobile checks pass, including equal title/description/button baselines at desktop width.
