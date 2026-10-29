@@ -88,12 +88,7 @@
 @media(min-width:1000px) { .app .game-terminal.mp-board .board-companion { grid-row:1 / span var(--crew-count,3) !important; } }
 @media(min-width:1000px) { .app .game-terminal .equipment-grid { grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); } }
 
-/* Owner-supplied special circuit modules retain their wider original shape. */
-.app .game-terminal .wire-tile:is(.circuit-yellow,.circuit-red) { width:calc(var(--packed-height) * .92); background-size:contain !important; }
-.app .game-terminal .wire-tile.circuit-yellow:not(.cleared) { --cartridge:url('../assets/gameplay/tracker-yellow.webp'); }
-.app .game-terminal .wire-tile.circuit-red:not(.cleared) { --cartridge:url('../assets/gameplay/tracker-red.webp'); }
-.app .game-terminal .wire-tile:is(.circuit-yellow,.circuit-red):not(.cleared) strong { color:#fff2bb; text-shadow:0 1px 3px #000; }
-.app .game-terminal .wire-tile:is(.circuit-yellow,.circuit-red):not(.cleared) .wire-index { color:#fff2bb; }
+/* Supplied yellow/red modules belong only to the public tracker badges. */
 .app .game-terminal .communication-portrait,.app .game-terminal.mp-board .communication-portrait { width:44px; height:40px; top:-4px; }
 .app .game-terminal .communication-portrait > :not(.portrait-frame-art) { width:34px; height:32px; object-fit:contain; }
 .app .game-terminal .rack-label { padding-left:50px; }
