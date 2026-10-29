@@ -156,7 +156,6 @@ export function App({
                   <article className={`adventure-mode mode-${i} ${selectedMode === i ? "selected" : ""}`} key={name}>
                     <AdventurePanels index={i} />
                     <button className="panel-select" aria-label={`Select ${name}`} aria-pressed={selectedMode === i} onClick={() => setSelectedMode(i)}>
-                      <span className="panel-selection-label">{selectedMode === i ? "Selected" : "Explore"}</span>
                     </button>
                     <div className="mode-copy">
                       <h2>{name}</h2>

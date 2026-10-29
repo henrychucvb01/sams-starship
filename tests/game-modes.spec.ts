@@ -4,6 +4,7 @@ test('approved adventure artwork, panel selection, difficulty locks and crew-fir
  await page.goto('/tests/fixtures/real.html');await page.getByRole('button',{name:"Let's Fly!"}).click();
  await expect(page.getByRole('heading',{name:'Choose Your Adventure!',exact:true})).toBeFocused();
  await expect(page.locator('header.topbar,footer')).toHaveCount(0);
+ await expect(page.locator('.panel-selection-label')).toHaveCount(0);
  await expect(page.locator('.combined-panels clipPath path')).toHaveCount(4);
  await expect(page.locator('.individual-panel-art')).toHaveCount(4);
  const modes=page.locator('.adventure-mode');await expect(modes).toHaveCount(4);
@@ -17,6 +18,9 @@ test('approved adventure artwork, panel selection, difficulty locks and crew-fir
  await difficulty.selectOption('Easy');
  for(const width of [320,390,768,1024,1440]){await page.setViewportSize({width,height:1000});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(await modes.locator('.illustrated-mode-button').evaluateAll(els=>els.every(el=>el.getBoundingClientRect().height>=44))).toBe(true);}
  await page.setViewportSize({width:1440,height:1000});
+ const titleBottom=await page.locator('.adventure-heading img').evaluate(el=>el.getBoundingClientRect().bottom);
+ const panelTop=await page.locator('.combined-panels').evaluate(el=>{const r=el.getBoundingClientRect();return r.top+r.height*137/841;});
+ expect(panelTop-titleBottom).toBeGreaterThanOrEqual(0);expect(panelTop-titleBottom).toBeLessThan(60);
  for(const selector of ['h2','.mode-copy p','.illustrated-mode-button']){
   const ys=await modes.locator(selector).evaluateAll(els=>els.map(el=>el.getBoundingClientRect().y));
   expect(Math.max(...ys)-Math.min(...ys)).toBeLessThan(1);

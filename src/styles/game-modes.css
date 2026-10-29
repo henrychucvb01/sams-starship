@@ -15,7 +15,6 @@
 .mode-1 { --mode-color: #8de7ff; }.mode-2 { --mode-color: #ffb36b; }.mode-3 { --mode-color: #d6b0ff; }
 .panel-select { position: absolute; inset: 0; width: 100%; border: 0; background: transparent; border-radius: 20px; cursor: pointer; transition: box-shadow .2s; }
 .panel-select:hover, .adventure-mode.selected .panel-select { box-shadow: none; }
-.panel-selection-label { position: absolute; top: 12px; left: 12px; background: #141737df; border: 1px solid var(--mode-color); border-radius: 16px; padding: 6px 10px; color: var(--mode-color); font-size: .65rem; font-weight: 800; }
 .mode-copy { position: relative; pointer-events: none; padding: 20px 12px 8px; border-radius: 16px; background: linear-gradient(transparent, #111636ec 18%, #111636f5); text-align: center; }
 .mode-copy button, .mode-copy select { pointer-events: auto; }
 .game-modes-page .mode-copy h2 { font: 900 clamp(1rem, 1.65vw, 1.8rem)/1.15 'Trebuchet MS', sans-serif; color: var(--mode-color); margin: 0 0 8px; text-shadow: 0 2px 3px #111; }
@@ -50,7 +49,7 @@
 @media (prefers-reduced-motion: reduce) { .panel-select { transition: none; } }
 .reduce-motion .panel-select { transition: none; }
 
-@media (min-width: 1001px) { .panel-select { transform: skewX(-16deg); } .panel-selection-label { transform: skewX(16deg); } }
+@media (min-width: 1001px) { .panel-select { transform: skewX(-16deg); } }
 
 .individual-panel-art { display: none; }
 @media (max-width: 1000px) { .individual-panel-art { display: block; } }
@@ -75,3 +74,7 @@
 }
 @media (prefers-reduced-motion: reduce) { .panel-light { transition: none; } }
 .reduce-motion .panel-light { transition: none; }
+
+/* Bring the title into the transparent space above the illustrated panels. */
+@media (min-width: 1001px) { .page.game-modes-page .adventure-heading { position: relative; z-index: 2; transform: translateY(clamp(50px, 7vw, 110px)); } }
+@media (max-width: 1000px) { .page.game-modes-page .adventure-heading { transform: translateY(12px); } }
